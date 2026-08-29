@@ -327,9 +327,194 @@ $("#download-assessment-btn").addEventListener("click", async () => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Full pipeline: L1 session -> L2 -> Part 2 -> L3 (LLM + Judge + XAI)
+// ---------------------------------------------------------------------------
+
+const PIPELINE_TIMEOUT_MS = 300000;
+
+let currentPipelineResult = null;
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderList(items) {
+  if (!items || items.length === 0) return "<p>—</p>";
+  return "<ul>" + items.map((i) => `<li>${escapeHtml(i)}</li>`).join("") + "</ul>";
+}
+
+function renderStages(stages) {
+  const cells = [
+    ["L1 Normalized", stages.l1?.normalized_events],
+    ["L2 Enriched", stages.l2?.enriched_events],
+    ["Part 2 Alerts", stages.part2?.alerts],
+    ["L3 Analyzed", stages.l3?.analyzed],
+  ];
+  $("#pipeline-stages").innerHTML = cells
+    .map(
+      ([label, value]) => `
+    <div class="stat">
+      <span class="stat-label">${label}</span>
+      <span class="stat-value">${formatNumber(value ?? 0)}</span>
+    </div>`
+    )
+    .join("");
+}
+
+function renderFinalAssessment(item) {
+  const assessment = item.security_assessment || {};
+  const risk = assessment.risk || {};
+  const alert = assessment.alert || {};
+  const xai = item.explanation || {};
+  const llm = item.llm_analysis;
+  const validation = item.validation || {};
+  const mitre = assessment.mitre || {};
+
+  return `
+  <div class="analysis-card">
+    <h3>${escapeHtml(alert.rule_name || assessment.alert_id)}</h3>
+    <p class="analysis-meta">
+      <strong>Alert:</strong> ${escapeHtml(assessment.alert_id)} |
+      <strong>Severity:</strong> ${escapeHtml(alert.severity)} |
+      <strong>Risk:</strong> ${escapeHtml(risk.score)}/100 (${escapeHtml(risk.level)}) |
+      <strong>LLM:</strong> ${escapeHtml(item.llm_status)} |
+      <strong>Judge:</strong> ${escapeHtml(validation.status)} |
+      <strong>Status:</strong> ${escapeHtml(item.final_status)}
+    </p>
+
+    <h4>Why was this alert generated?</h4>
+    <p>${escapeHtml(xai.why_alerted)}</p>
+
+    <h4>Why this risk score?</h4>
+    <p>${escapeHtml(xai.why_risk)}</p>
+
+    <h4>Supporting factors</h4>
+    ${renderList(xai.supporting_factors)}
+
+    <h4>Context influences</h4>
+    ${renderList(xai.context_influences)}
+
+    <h4>MITRE ATT&amp;CK</h4>
+    <p>${escapeHtml(mitre.technique_id || "—")} ${escapeHtml(mitre.technique_name || "")}</p>
+    <p>${escapeHtml(xai.mitre_context)}</p>
+
+    <h4>Evidence</h4>
+    <p>${escapeHtml(xai.evidence_summary)}</p>
+
+    <h4>Uncertainty</h4>
+    <p>${escapeHtml(xai.uncertainty)}</p>
+
+    <h4>LLM reasoning</h4>
+    ${
+      llm
+        ? `<p><strong>Summary:</strong> ${escapeHtml(llm.summary)}</p>
+           <p>${escapeHtml(llm.reasoning)}</p>
+           <h4>Analyst recommendations</h4>
+           ${renderList(llm.analyst_recommendation)}
+           <h4>Possible interpretations</h4>
+           ${renderList(llm.possible_interpretations)}`
+        : "<p>LLM reasoning unavailable — deterministic results above remain valid.</p>"
+    }
+
+    <h4>Validation</h4>
+    <p><strong>Evidence coverage:</strong> ${escapeHtml(validation.evidence_coverage)} |
+       <strong>Checks passed:</strong> ${escapeHtml(validation.checks_passed)}/${escapeHtml(validation.checks_total)}</p>
+    ${renderList(validation.issues)}
+  </div>`;
+}
+
+function renderPipelineResult(result) {
+  renderStages(result.stages || {});
+
+  const finals = result.final_assessments || [];
+  const container = $("#analysis-cards");
+
+  if (finals.length === 0) {
+    const alerts = result.stages?.part2?.alerts ?? 0;
+    container.innerHTML = `<p>${
+      alerts === 0
+        ? "Pipeline completed — no security alerts were generated for this dataset."
+        : "Alerts were generated but no L3 analysis was produced."
+    }</p>`;
+  } else {
+    container.innerHTML = finals.map(renderFinalAssessment).join("");
+  }
+
+  $("#analysis-json").textContent = JSON.stringify(result, null, 2);
+  $("#analysis-json").hidden = true;
+  $("#toggle-analysis-json-btn").textContent = "Show Raw JSON";
+  $("#analysis-view").hidden = false;
+}
+
+async function runFullPipeline() {
+  if (!currentSessionId) throw new Error("No active session to analyze.");
+  if (currentPipelineResult) return currentPipelineResult;
+
+  showLoading(true);
+  $("#loading").querySelector("p").textContent =
+    "Running L2 enrichment, rules, risk, LLM reasoning, judge and XAI...";
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PIPELINE_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`/api/pipeline/analyze/${currentSessionId}`, {
+      method: "POST",
+      signal: controller.signal,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Full analysis failed");
+    currentPipelineResult = data;
+    return data;
+  } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("Full analysis timed out — the LLM did not respond in time");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+    $("#loading").querySelector("p").textContent = "Processing events locally...";
+    showLoading(false);
+  }
+}
+
+$("#run-pipeline-btn").addEventListener("click", async () => {
+  try {
+    renderPipelineResult(await runFullPipeline());
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
+$("#toggle-analysis-json-btn").addEventListener("click", () => {
+  const pre = $("#analysis-json");
+  pre.hidden = !pre.hidden;
+  $("#toggle-analysis-json-btn").textContent = pre.hidden ? "Show Raw JSON" : "Hide Raw JSON";
+});
+
+$("#close-analysis-btn").addEventListener("click", () => {
+  $("#analysis-view").hidden = true;
+});
+
+$("#download-analysis-btn").addEventListener("click", async () => {
+  try {
+    await runFullPipeline();
+    window.open(`/api/pipeline/download/${currentSessionId}`, "_blank");
+  } catch (err) {
+    showToast(err.message);
+  }
+});
+
 $("#new-upload-btn").addEventListener("click", () => {
   currentSessionId = null;
   currentAssessmentResult = null;
+  currentPipelineResult = null;
+  $("#analysis-view").hidden = true;
   pendingFiles = [];
   selectedSource = null;
   $("#file-input").value = "";

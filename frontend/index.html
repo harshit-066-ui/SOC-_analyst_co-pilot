@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>L1 — Security Event Ingestion</title>
+  <title>SOC Analyst Co-Pilot — Security Event Analysis</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>SECURITY EVENT INGESTION</h1>
-      <p class="subtitle">L1 — Event Collection &amp; Normalization</p>
+      <h1>SOC ANALYST CO-PILOT</h1>
+      <p class="subtitle">L1 Normalization → L2 Enrichment → Rules &amp; Risk → LLM, Judge &amp; XAI</p>
     </header>
 
     <main id="upload-section">
@@ -84,6 +84,8 @@
         <button type="button" class="btn btn-secondary" id="download-report-btn">Download Report</button>
         <button type="button" class="btn btn-primary" id="view-assessment-btn" style="background-color: #6a1b9a;">View Security Assessment</button>
         <button type="button" class="btn btn-secondary" id="download-assessment-btn" style="border-color: #6a1b9a; color: #6a1b9a;">Download Security Assessment</button>
+        <button type="button" class="btn btn-primary" id="run-pipeline-btn">Run Full Analysis (L1 → L3)</button>
+        <button type="button" class="btn btn-secondary" id="download-analysis-btn">Download Final Analysis</button>
         <button type="button" class="btn btn-outline" id="new-upload-btn">Upload Another</button>
       </div>
     </section>
@@ -98,6 +100,17 @@
       <h2>Security Assessment</h2>
       <pre id="assessment-preview"></pre>
       <button type="button" class="btn btn-outline" id="close-assessment-btn">Close</button>
+    </section>
+
+    <section class="card" id="analysis-view" hidden>
+      <h2>Final Security Analysis</h2>
+      <div class="stats-grid" id="pipeline-stages"></div>
+      <div id="analysis-cards"></div>
+      <div class="actions">
+        <button type="button" class="btn btn-secondary" id="toggle-analysis-json-btn">Show Raw JSON</button>
+        <button type="button" class="btn btn-outline" id="close-analysis-btn">Close</button>
+      </div>
+      <pre id="analysis-json" hidden></pre>
     </section>
 
     <div class="loading" id="loading" hidden style="display:none">

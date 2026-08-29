@@ -1,5 +1,34 @@
 # Cyber Defense Decision-Support Harness — Minor Prototype
 
+## End-to-End Flow
+
+```
+Upload (Wazuh / Suricata / Firewall)
+  ↓ L1        normalization           → NormalizedEvent[]
+  ↓ L2        enrichment + CTI + MITRE → ContextEnrichedEvent[]
+  ↓ Part 2    rule engine + risk engine → SecurityAssessment[]
+  ↓ L3        LLM + Judge + XAI        → FinalSecurityAssessment[]
+  ↓ Frontend
+```
+
+The UI uploads files to `/api/l1/upload` and then calls
+`POST /api/pipeline/analyze/{session_id}`, which runs L2 → Part 2 → L3 over the
+normalized events of that session and returns the per-stage counts, the Part 2
+assessments and the final L3 results.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/pipeline/analyze/{session_id}` | Run L2 → Part 2 → L3 for an L1 session |
+| GET | `/api/pipeline/result/{session_id}` | Last stored pipeline result |
+| GET | `/api/pipeline/download/{session_id}` | Download the pipeline result JSON |
+
+Query parameters on `analyze`: `run_llm` (default `true`) and `max_alerts`
+(default `20`).
+
+L3 reasoning requires `OPENROUTER_API_KEY` in the environment. Without it the
+pipeline still completes: `llm_status` is `unavailable` and the deterministic
+Part 2 risk plus the XAI explanation are returned unchanged.
+
 ## Module L1: Event Collection & Normalization
 
 L1 ingests security logs from Wazuh, Suricata, and firewall sources, normalizes them into a unified event schema, validates, deduplicates, and produces L2-ready output.

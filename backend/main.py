@@ -1,4 +1,4 @@
-"""Cyber Defense Harness — L1 Event Ingestion API."""
+"""Cyber Defense Harness — L1 -> L2 -> Part 2 -> L3 API."""
 
 from pathlib import Path
 
@@ -9,11 +9,16 @@ from fastapi.staticfiles import StaticFiles
 
 from l1.api.ingestion_routes import router as l1_router
 from l2.api.enrichment_routes import router as l2_router
+from l3.api.analysis_routes import router as l3_router
 from part2.api.assessment_routes import router as part2_router
+from pipeline.routes import router as pipeline_router
 
 app = FastAPI(
-    title="Cyber Defense Harness — L1, L2 & Part 2",
-    description="Event Collection, Normalization, Enrichment, Rules & Risk Assessment",
+    title="Cyber Defense Harness — L1, L2, Part 2 & L3",
+    description=(
+        "Event Collection, Normalization, Enrichment, Rules & Risk Assessment, "
+        "LLM Reasoning, Judge & XAI"
+    ),
     version="1.0.0",
 )
 
@@ -28,6 +33,8 @@ app.add_middleware(
 app.include_router(l1_router)
 app.include_router(l2_router)
 app.include_router(part2_router)
+app.include_router(l3_router)
+app.include_router(pipeline_router)
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 if FRONTEND_DIR.exists():
@@ -44,4 +51,4 @@ async def root():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "module": "L1"}
+    return {"status": "ok", "modules": ["L1", "L2", "Part2", "L3"]}

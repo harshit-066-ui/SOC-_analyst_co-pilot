@@ -296,3 +296,40 @@ textarea:focus {
   font-size: 0.875rem;
   z-index: 200;
 }
+
+.analysis-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.analysis-card h3 {
+  margin: 0 0 0.5rem;
+}
+
+.analysis-card h4 {
+  margin: 1rem 0 0.25rem;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.analysis-card p,
+.analysis-card li {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.analysis-card ul {
+  margin: 0.25rem 0 0 1.25rem;
+}
+
+.analysis-meta {
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
