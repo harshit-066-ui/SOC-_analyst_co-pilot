@@ -1,0 +1,69 @@
+[
+  {
+    "document_id": "SEC-KB-001",
+    "text": "Unauthorized privileged access can indicate privilege escalation or misuse of administrative credentials. Investigate which account elevated, from which host, and whether the elevation matches an approved change.",
+    "title": "Unauthorized privileged access",
+    "source": "internal_playbook",
+    "category": "privilege_escalation",
+    "technique_id": "T1548",
+    "tactic": "Privilege Escalation",
+    "platform": "Linux",
+    "severity": "high",
+    "tags": ["sudo", "root", "privilege"]
+  },
+  {
+    "document_id": "SEC-KB-002",
+    "text": "Valid Accounts is a MITRE ATT&CK technique involving the use of legitimate credentials to gain access. Adversaries reuse stolen credentials so their activity blends in with normal authentication traffic.",
+    "title": "Valid Accounts",
+    "source": "mitre_attack",
+    "category": "credential_access",
+    "technique_id": "T1078",
+    "tactic": "Defense Evasion",
+    "severity": "high",
+    "tags": ["credentials", "valid accounts"]
+  },
+  {
+    "document_id": "SEC-KB-003",
+    "text": "Normal authentication events do not necessarily indicate malicious activity. A single successful login from a known host and a usual time window is expected behaviour and should not be escalated on its own.",
+    "title": "Baseline authentication behaviour",
+    "source": "internal_playbook",
+    "category": "authentication",
+    "severity": "low",
+    "tags": ["login", "baseline"]
+  },
+  {
+    "document_id": "SEC-KB-004",
+    "text": "Brute Force covers repeated authentication attempts against one or many accounts. A burst of failures from a single source IP followed by a success is a strong indicator of a successful password guessing attack.",
+    "title": "Brute Force",
+    "source": "mitre_attack",
+    "category": "credential_access",
+    "technique_id": "T1110",
+    "tactic": "Credential Access",
+    "severity": "high",
+    "tags": ["brute force", "authentication_failure"]
+  },
+  {
+    "document_id": "SEC-KB-005",
+    "text": "Outbound traffic to a known command and control server suggests an already compromised host. Isolate the host and review what was transferred before the connection was observed.",
+    "title": "Command and control traffic",
+    "source": "internal_playbook",
+    "category": "command_and_control",
+    "technique_id": "T1071",
+    "tactic": "Command and Control",
+    "platform": "Linux",
+    "severity": "critical",
+    "tags": ["c2", "egress"]
+  },
+  {
+    "document_id": "SEC-KB-006",
+    "text": "Windows User Account Control bypasses let a process run with elevated integrity without prompting the user. Look for auto-elevating binaries and unusual parent-child process chains.",
+    "title": "UAC bypass",
+    "source": "internal_playbook",
+    "category": "privilege_escalation",
+    "technique_id": "T1548",
+    "tactic": "Privilege Escalation",
+    "platform": "Windows",
+    "severity": "high",
+    "tags": ["uac", "windows"]
+  }
+]

@@ -556,6 +556,12 @@ class RuleEngine:
                 }
             )
 
+        # Rules that declare a technique win; otherwise the mapping L2 already
+        # derived from the event is carried over instead of being dropped.
+        mitre_attack = rule.mitre_attack or first_event.get(
+            "mitre_attack", {}
+        )
+
         return SecurityAlert(
             alert_id=(
                 f"ALT-"
@@ -566,7 +572,7 @@ class RuleEngine:
             rule_name=rule.rule_name,
             severity=rule.severity,
             confidence=rule.confidence,
-            mitre_attack=rule.mitre_attack,
+            mitre_attack=mitre_attack,
             entities=first_event.get("entities", {}),
             asset_context=first_event.get("asset_context", {}),
             user_context=first_event.get("user_context", {}),
