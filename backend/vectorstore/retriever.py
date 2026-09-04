@@ -8,12 +8,15 @@ rule finding should be reasoned about with.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from embeddings import alert_to_text, assessment_to_text
 from part2.models.security_alert import SecurityAlert
 from part2.models.security_assessment import SecurityAssessment
 from vectorstore.store import get_knowledge_store
+
+logger = logging.getLogger(__name__)
 
 
 def retrieve_for_text(
@@ -23,7 +26,11 @@ def retrieve_for_text(
 ) -> list[dict[str, Any]]:
     """Knowledge relevant to a free-form security query."""
 
-    return get_knowledge_store().search(text, top_k=top_k, filters=filters)
+    try:
+        return get_knowledge_store().search(text, top_k=top_k, filters=filters)
+    except Exception as exc:
+        logger.warning("Vector retrieval failed for text query: %s", exc)
+        return []
 
 
 def retrieve_for_alert(

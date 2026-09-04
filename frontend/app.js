@@ -241,45 +241,15 @@ async function generateSecurityAssessment() {
   if (currentAssessmentResult) {
     return currentAssessmentResult;
   }
-  
+
   if (!currentSessionId) {
     throw new Error("No active session to assess.");
   }
-  
-  showLoading(true);
-  $("#loading").querySelector("p").textContent = "Generating security assessment...";
-  
-  try {
-    // 1. Get raw normalized events
-    const evRes = await fetch(`${API}/events/${currentSessionId}?limit=10000`);
-    const evData = await evRes.json();
-    if (!evRes.ok) throw new Error(evData.detail || "Failed to fetch L1 events");
-    
-    // 2. Enrich events via L2
-    const l2Res = await fetch("/api/l2/enrich/batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(evData.events)
-    });
-    const enrichedEvents = await l2Res.json();
-    if (!l2Res.ok) throw new Error("Security Assessment could not be generated because Context Enrichment failed.");
-    
-    // 3. Evaluate via Part 2
-    const p2Res = await fetch("/api/part2/evaluate/batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(enrichedEvents)
-    });
-    const assessments = await p2Res.json();
-    if (!p2Res.ok) throw new Error("Security Assessment could not be generated because Rule/Risk Evaluation failed.");
-    
-    currentAssessmentResult = assessments;
-    return assessments;
-    
-  } finally {
-    $("#loading").querySelector("p").textContent = "Processing events locally...";
-    showLoading(false);
-  }
+
+  const pipelineData = await runFullPipeline();
+  const assessments = pipelineData.assessments || [];
+  currentAssessmentResult = assessments;
+  return assessments;
 }
 
 $("#view-assessment-btn").addEventListener("click", async () => {

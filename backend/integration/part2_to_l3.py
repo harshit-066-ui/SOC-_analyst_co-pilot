@@ -14,8 +14,11 @@ carry on its own output contract.
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from l2.models import ContextEnrichedEvent
 from l3.models.schemas import (
@@ -204,6 +207,35 @@ def _threshold_of(triggered_conditions: list[dict[str, Any]]) -> Any:
     return None
 
 
+def _retrieve_vector_cti(
+    assessment: Part2SecurityAssessment,
+    limit: int = MAX_CTI_ITEMS,
+) -> list[dict[str, Any]]:
+    """Retrieve semantically grounded knowledge chunks via dense embeddings and Qdrant."""
+    try:
+        from vectorstore.retriever import retrieve_for_assessment
+
+        hits = retrieve_for_assessment(assessment, top_k=limit)
+        results: list[dict[str, Any]] = []
+        for hit in hits:
+            payload = hit.get("payload", {})
+            results.append({
+                "id": str(hit.get("id") or ""),
+                "score": hit.get("score"),
+                "content": hit.get("text") or payload.get("text", ""),
+                "source": payload.get("source", "vectorstore"),
+                "category": payload.get("category", ""),
+                "technique_id": payload.get("technique_id", ""),
+                "title": payload.get("title", ""),
+            })
+        return results
+    except Exception as exc:
+        logger.warning(
+            "Semantic CTI retrieval failed: %s; falling back to L2 CTI", exc
+        )
+        return []
+
+
 def to_l3_assessment(
     assessment: Part2SecurityAssessment,
     enriched_events: dict[str, ContextEnrichedEvent] | None = None,
@@ -214,6 +246,25 @@ def to_l3_assessment(
     lookup = enriched_events or {}
     matched = [lookup[eid] for eid in alert.event_ids if eid in lookup]
     normalized_event = matched[0].event if matched else {}
+
+    # 1. Retrieve semantically grounded knowledge from vector store (BGE-M3 + Qdrant)
+    vector_cti = _retrieve_vector_cti(assessment, limit=MAX_CTI_ITEMS)
+    keyword_cti = _collect_cti(matched)
+
+    # 2. Combine vector hits with Stage 2 CTI, deduplicating by ID/content
+    combined_cti: list[dict[str, Any]] = list(vector_cti)
+    seen_keys = {
+        str(item.get("id") or item.get("content"))
+        for item in combined_cti
+        if (item.get("id") or item.get("content"))
+    }
+    for item in keyword_cti:
+        key = str(item.get("id") or item.get("content"))
+        if key and key not in seen_keys:
+            seen_keys.add(key)
+            combined_cti.append(item)
+        if len(combined_cti) >= MAX_CTI_ITEMS:
+            break
 
     return L3SecurityAssessment(
         alert_id=alert.alert_id,
@@ -240,6 +291,7 @@ def to_l3_assessment(
             _first(assessment.mitre_attack, alert.mitre_attack) or {}
         ),
         risk=_build_risk(assessment.risk),
-        retrieved_cti=_collect_cti(matched),
+        retrieved_cti=combined_cti,
         timestamp=alert.timestamp,
     )
+

@@ -27,9 +27,10 @@ from __future__ import annotations
 import logging
 import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import JSONResponse
 
+from integration.part2_to_l3 import to_l3_assessment
 from l3.config import (
     OPENROUTER_FALLBACK_MODEL,
     OPENROUTER_MODEL,
@@ -41,6 +42,9 @@ from l3.models.schemas import (
     SecurityAssessment,
 )
 from l3.orchestrator import Part3Orchestrator
+from part2.models.security_assessment import (
+    SecurityAssessment as Part2SecurityAssessment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +52,21 @@ router = APIRouter(prefix="/api/l3", tags=["L3 LLM Analysis"])
 
 # Single shared orchestrator instance (stateless; thread-safe)
 _orchestrator = Part3Orchestrator()
+
+
+def _ensure_l3_assessment(data: Any) -> SecurityAssessment:
+    """Accept either L3 SecurityAssessment or Part 2 SecurityAssessment and return L3 SecurityAssessment."""
+    if isinstance(data, SecurityAssessment):
+        return data
+    if isinstance(data, Part2SecurityAssessment):
+        return to_l3_assessment(data)
+    if isinstance(data, dict):
+        # Part 2 shape check: nested alert object with alert_id inside it
+        if "alert" in data and isinstance(data["alert"], dict) and "alert_id" not in data:
+            part2_obj = Part2SecurityAssessment.model_validate(data)
+            return to_l3_assessment(part2_obj)
+        return SecurityAssessment.model_validate(data)
+    raise ValueError(f"Cannot convert payload of type {type(data)} to SecurityAssessment")
 
 
 # ---------------------------------------------------------------------------
@@ -60,19 +79,30 @@ _orchestrator = Part3Orchestrator()
     response_model=FinalSecurityAssessment,
     summary="Run PART 3 LLM analysis on a SecurityAssessment",
     description=(
-        "Accepts a SecurityAssessment from PART 2 and runs the full PART 3 "
-        "pipeline: XAI explanation → evidence-grounded LLM reasoning → "
+        "Accepts a SecurityAssessment from PART 2 (or native L3) and runs the full "
+        "PART 3 pipeline: XAI explanation → evidence-grounded LLM reasoning → "
         "deterministic validation. Returns a FinalSecurityAssessment. "
         "The deterministic risk score is never modified."
     ),
 )
-async def analyze(assessment: SecurityAssessment) -> FinalSecurityAssessment:
+async def analyze(
+    assessment: SecurityAssessment | Part2SecurityAssessment | dict = Body(...),
+) -> FinalSecurityAssessment:
     """Main analysis endpoint."""
     start = time.perf_counter()
-    logger.info("Received analysis request | alert_id=%s", assessment.alert_id)
+    try:
+        l3_assessment = _ensure_l3_assessment(assessment)
+    except Exception as exc:
+        logger.warning("Invalid assessment payload: %s", exc)
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid security assessment payload: {exc}",
+        ) from exc
+
+    logger.info("Received analysis request | alert_id=%s", l3_assessment.alert_id)
 
     try:
-        result = _orchestrator.analyze(assessment)
+        result = _orchestrator.analyze(l3_assessment)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Unexpected error in orchestrator: %s", exc)
         raise HTTPException(
@@ -83,7 +113,7 @@ async def analyze(assessment: SecurityAssessment) -> FinalSecurityAssessment:
     elapsed = time.perf_counter() - start
     logger.info(
         "Analysis complete | alert_id=%s | elapsed=%.2fs | status=%s",
-        assessment.alert_id,
+        l3_assessment.alert_id,
         elapsed,
         result.final_status.value,
     )
@@ -106,7 +136,7 @@ async def analyze(assessment: SecurityAssessment) -> FinalSecurityAssessment:
     ),
 )
 async def analyze_batch(
-    assessments: list[SecurityAssessment],
+    assessments: list[Any] = Body(...),
 ) -> list[FinalSecurityAssessment]:
     """Batch analysis endpoint."""
     if not assessments:
@@ -118,24 +148,34 @@ async def analyze_batch(
         )
 
     results: list[FinalSecurityAssessment] = []
-    for assessment in assessments:
+    for item in assessments:
         try:
-            result = _orchestrator.analyze(assessment)
+            l3_assessment = _ensure_l3_assessment(item)
+            result = _orchestrator.analyze(l3_assessment)
         except Exception as exc:  # noqa: BLE001
+            alert_id = getattr(item, "alert_id", "unknown")
+            if isinstance(item, dict):
+                alert_id = item.get("alert_id") or item.get("alert", {}).get("alert_id", "unknown")
             logger.exception(
-                "Batch item failed | alert_id=%s: %s", assessment.alert_id, exc
+                "Batch item failed | alert_id=%s: %s", alert_id, exc
             )
-            # Produce a minimal failed result rather than aborting the batch
             from l3.models.schemas import (
+                AlertInfo,
                 FinalStatus,
                 LLMStatus,
+                RiskInfo,
                 ValidationResult,
                 ValidationStatus,
                 XAIExplanation,
             )
 
+            fallback_assessment = SecurityAssessment(
+                alert_id=str(alert_id),
+                alert=AlertInfo(rule_name=str(alert_id)),
+                risk=RiskInfo(score=0.0, level="unknown"),
+            )
             result = FinalSecurityAssessment(
-                security_assessment=assessment,
+                security_assessment=fallback_assessment,
                 llm_analysis=None,
                 llm_status=LLMStatus.UNAVAILABLE,
                 validation=ValidationResult(
@@ -147,7 +187,7 @@ async def analyze_batch(
                 ),
                 explanation=XAIExplanation(
                     why_alerted="Analysis failed.",
-                    why_risk=f"Risk score: {assessment.risk.score:.1f}/100.",
+                    why_risk="Risk score: 0.0/100.",
                     supporting_factors=[],
                     context_influences=[],
                     uncertainty="Unknown — analysis failed.",

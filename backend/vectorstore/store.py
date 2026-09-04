@@ -136,6 +136,7 @@ class KnowledgeStore:
         self._client: QdrantClient | None = None
         self._lock = threading.Lock()
         self._collection_ready = False
+        self._seeded = False
 
     # ------------------------------------------------------------------
     # Connection / collection lifecycle
@@ -228,6 +229,30 @@ class KnowledgeStore:
     def ensure_collection(self) -> None:
         if not self._collection_ready:
             self.create_collection()
+
+    def ensure_seeded(self) -> None:
+        """Seed default knowledge documents if the collection is empty."""
+        if self._seeded:
+            return
+
+        with self._lock:
+            if self._seeded:
+                return
+            self.ensure_collection()
+            try:
+                if self.count() == 0:
+                    from vectorstore.documents import cti_documents, seed_documents
+
+                    docs = seed_documents() + cti_documents()
+                    self.upsert_documents(docs)
+                    logger.info(
+                        "Auto-seeded %d knowledge documents into %s",
+                        len(docs),
+                        self.collection,
+                    )
+            except Exception as exc:
+                logger.warning("Could not auto-seed knowledge collection: %s", exc)
+            self._seeded = True
 
     # ------------------------------------------------------------------
     # Ingestion
@@ -332,6 +357,7 @@ class KnowledgeStore:
             raise VectorStoreError(f"top_k must be a positive integer, got {top_k!r}")
 
         self.ensure_collection()
+        self.ensure_seeded()
         threshold = (
             self.score_threshold if score_threshold is None else score_threshold
         )
