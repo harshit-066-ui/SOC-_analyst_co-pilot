@@ -1,33 +1,55 @@
 # Cyber Defense Decision-Support Harness — Minor Prototype
 
-## End-to-End Flow
+## Embeddings (BGE-M3)
 
+`backend/embeddings/` turns security text into dense vectors. BGE-M3 is used
+because it runs locally (reproducible, no data leaves the host), is
+multilingual and long-context, and supports the dense + sparse retrieval the
+planned Qdrant stage needs. Nothing in the deterministic rule/risk/XAI pipeline
+imports it; it is additive.
+
+```python
+from embeddings import assessment_to_text, embed_text, embed_texts
+
+embed_text("Unauthorized privileged access was detected.")   # -> list[float], len 1024
+embed_texts([...])                                            # batched
+embed_text(assessment_to_text(part2_assessment))              # rule finding -> vector
 ```
-Upload (Wazuh / Suricata / Firewall)
-  ↓ L1        normalization           → NormalizedEvent[]
-  ↓ L2        enrichment + CTI + MITRE → ContextEnrichedEvent[]
-  ↓ Part 2    rule engine + risk engine → SecurityAssessment[]
-  ↓ L3        LLM + Judge + XAI        → FinalSecurityAssessment[]
-  ↓ Frontend
+
+The model is loaded lazily on first use by the process-wide
+`get_embedding_service()` and reused afterwards (~12 s first load on CPU,
+sub-second per batch after). Configuration is environment driven — see
+`backend/embeddings/config.py`: `EMBEDDING_MODEL` (default `BAAI/bge-m3`),
+`EMBEDDING_DEVICE` (`auto` → CUDA when available, else CPU; force with `cpu` /
+`cuda`), `EMBEDDING_BATCH_SIZE`, `EMBEDDING_MAX_LENGTH`, `EMBEDDING_NORMALIZE`.
+
+Validate the component with `cd backend && python -m embeddings.validate`.
+
+## Vector store (Qdrant)
+
+`backend/vectorstore/` stores the curated CTI knowledge base as BGE-M3 vectors
+and returns the context documents closest to a rule finding. It is still
+additive: the deterministic L1 → L2 → Part 2 → L3 pipeline does not call it,
+and no prompt/LLM wiring exists yet.
+
+```python
+from vectorstore import cti_documents, get_context_store, retrieve_for_assessment
+
+get_context_store().index_documents(cti_documents())   # one-time / on refresh
+retrieve_for_assessment(part2_assessment)              # -> [{id, content, category, tags, score}]
 ```
 
-The UI uploads files to `/api/l1/upload` and then calls
-`POST /api/pipeline/analyze/{session_id}`, which runs L2 → Part 2 → L3 over the
-normalized events of that session and returns the per-stage counts, the Part 2
-assessments and the final L3 results.
+The documents come from `l2/kb/cti_knowledge_base.KNOWLEDGE_BASE`, so keyword
+retrieval (L2) and semantic retrieval share one source. Point IDs are
+`uuid5(doc_id)`, so re-indexing updates rather than duplicates. The collection
+is created on first use with BGE-M3's 1024 dimensions and cosine distance.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/pipeline/analyze/{session_id}` | Run L2 → Part 2 → L3 for an L1 session |
-| GET | `/api/pipeline/result/{session_id}` | Last stored pipeline result |
-| GET | `/api/pipeline/download/{session_id}` | Download the pipeline result JSON |
-
-Query parameters on `analyze`: `run_llm` (default `true`) and `max_alerts`
-(default `20`).
-
-L3 reasoning requires `OPENROUTER_API_KEY` in the environment. Without it the
-pipeline still completes: `llm_status` is `unavailable` and the deterministic
-Part 2 risk plus the XAI explanation are returned unchanged.
+Config (`backend/vectorstore/config.py`): `QDRANT_URL` (default `:memory:`, an
+embedded instance — set `http://localhost:6333` for a server),
+`QDRANT_API_KEY`, `QDRANT_COLLECTION`, `QDRANT_TOP_K`,
+`QDRANT_SCORE_THRESHOLD`, `QDRANT_TIMEOUT`. Run a server with
+`docker run -p 6333:6333 qdrant/qdrant`, then check the layer with
+`cd backend && python -m vectorstore.validate`.
 
 ## Module L1: Event Collection & Normalization
 
