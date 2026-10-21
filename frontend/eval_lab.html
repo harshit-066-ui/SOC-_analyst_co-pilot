@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOC Analyst Co-Pilot — Evaluation Lab</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/eval_lab.css">
+</head>
+<body>
+  <div class="container eval-container">
+
+    <!-- ── Header ────────────────────────────────────────────────────── -->
+    <header>
+      <div class="header-nav">
+        <a href="/" class="nav-link">← SOC Analyst Co-Pilot</a>
+        <span class="nav-sep">|</span>
+        <span class="nav-active">Evaluation Lab</span>
+      </div>
+      <h1>EVALUATION LAB</h1>
+      <p class="subtitle">Compare five cybersecurity analysis configurations against the same normalised events</p>
+    </header>
+
+    <!-- ── Step 1: Dataset ───────────────────────────────────────────── -->
+    <section class="card" id="step-dataset">
+      <h2><span class="step-num">1</span> Dataset &amp; Normalisation</h2>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="upload-tab">Upload Files</button>
+        <button class="tab-btn" data-tab="session-tab">Use Existing Session</button>
+      </div>
+
+      <!-- Upload tab -->
+      <div id="upload-tab" class="tab-pane">
+        <div class="upload-area" id="eval-drop-zone">
+          <input type="file" id="eval-file-input" accept=".csv,.json,.jsonl,.log,.txt" multiple hidden>
+          <button type="button" class="btn btn-primary" id="eval-choose-btn">Choose Files</button>
+          <p class="hint">Supported: CSV · JSON · JSONL · LOG · TXT &nbsp;|&nbsp; Max 20 MB per file</p>
+        </div>
+        <div id="eval-file-list" class="file-list" hidden></div>
+
+        <div class="form-row">
+          <label for="eval-source-hint">Platform hint (optional)</label>
+          <select id="eval-source-hint" class="form-select">
+            <option value="">Auto-detect</option>
+            <option value="wazuh">Wazuh</option>
+            <option value="suricata">Suricata</option>
+            <option value="firewall">Firewall</option>
+            <option value="generic">Generic</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Session tab -->
+      <div id="session-tab" class="tab-pane" hidden>
+        <div class="form-row">
+          <label for="eval-session-id">L1 Session ID</label>
+          <input type="text" id="eval-session-id" class="form-input"
+                 placeholder="e.g. 112ee8989e2f" maxlength="64">
+        </div>
+        <p class="hint">Use a session ID from a previous upload on the main page.</p>
+      </div>
+
+      <!-- Dataset stats (shown after normalisation) -->
+      <div id="dataset-stats" class="dataset-stats" hidden>
+        <h3>Dataset Summary</h3>
+        <div class="stats-grid stats-grid-4">
+          <div class="stat"><span class="stat-label">Raw Events</span><span class="stat-value" id="ds-raw">—</span></div>
+          <div class="stat"><span class="stat-label">Normalised</span><span class="stat-value success" id="ds-norm">—</span></div>
+          <div class="stat"><span class="stat-label">Deduped</span><span class="stat-value" id="ds-dedup">—</span></div>
+          <div class="stat"><span class="stat-label">Errors</span><span class="stat-value error" id="ds-err">—</span></div>
+        </div>
+        <div class="fingerprint-row">
+          <span class="stat-label">Dataset fingerprint</span>
+          <code id="ds-fingerprint" class="fingerprint-code">—</code>
+        </div>
+        <div class="fingerprint-row">
+          <span class="stat-label">Ground truth</span>
+          <span id="ds-gt-status" class="badge badge-muted">Not loaded</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Step 2: Ground Truth ──────────────────────────────────────── -->
+    <section class="card" id="step-ground-truth">
+      <h2><span class="step-num">2</span> Ground Truth <span class="optional-badge">Optional</span></h2>
+      <p class="muted-text">
+        Precision, recall and F1 require labelled ground truth. Without it, all other metrics still run.
+        Synthetic labels are clearly identified in results.
+      </p>
+
+      <div class="gt-actions">
+        <select id="gt-select" class="form-select gt-select">
+          <option value="">— No ground truth —</option>
+        </select>
+        <button type="button" class="btn btn-secondary" id="gt-refresh-btn">Refresh</button>
+        <button type="button" class="btn btn-secondary" id="gt-upload-btn">Upload JSON</button>
+        <input type="file" id="gt-file-input" accept=".json" hidden>
+      </div>
+
+      <div id="gt-info" class="gt-info" hidden>
+        <span id="gt-name" class="badge badge-success"></span>
+        <span id="gt-count" class="badge badge-muted"></span>
+        <span id="gt-synthetic" class="badge badge-warning" hidden>Synthetic</span>
+      </div>
+    </section>
+
+    <!-- ── Step 3: Configuration Selection ──────────────────────────── -->
+    <section class="card" id="step-configs">
+      <h2><span class="step-num">3</span> Configuration Selection</h2>
+
+      <div id="config-cards-grid" class="config-grid">
+        <!-- Injected by JS -->
+      </div>
+
+      <div class="config-actions">
+        <button type="button" class="btn btn-secondary" id="select-all-btn">Select All</button>
+        <button type="button" class="btn btn-secondary" id="select-none-btn">Deselect All</button>
+      </div>
+    </section>
+
+    <!-- ── Step 4: Settings ──────────────────────────────────────────── -->
+    <section class="card" id="step-settings">
+      <h2><span class="step-num">4</span> Evaluation Settings</h2>
+
+      <div class="settings-grid">
+        <div class="form-row">
+          <label for="eval-max-llm">Max LLM Alerts</label>
+          <input type="number" id="eval-max-llm" class="form-input" value="5" min="1" max="20">
+          <span class="form-hint">LLM calls per batch (max 20, respects API limits)</span>
+        </div>
+        <div class="form-row">
+          <label for="eval-notes">Experiment Notes</label>
+          <input type="text" id="eval-notes" class="form-input" placeholder="Optional description…">
+        </div>
+      </div>
+
+      <div id="model-info-row" class="model-info-row">
+        <span class="stat-label">Model</span><span id="model-id-display" class="badge badge-muted">loading…</span>
+        <span class="stat-label" style="margin-left:1rem">RAG Collection</span><span id="rag-collection-display" class="badge badge-muted">loading…</span>
+        <span class="stat-label" style="margin-left:1rem">Embedding Model</span><span id="embedding-display" class="badge badge-muted">loading…</span>
+      </div>
+    </section>
+
+    <!-- ── Run Actions ───────────────────────────────────────────────── -->
+    <div class="run-actions card">
+      <button type="button" class="btn btn-primary btn-lg" id="run-btn" disabled>
+        Run Evaluation
+      </button>
+      <button type="button" class="btn btn-secondary" id="view-history-btn">
+        View Previous Experiments
+      </button>
+      <span id="run-status-text" class="run-status-text"></span>
+    </div>
+
+    <!-- ── Progress ──────────────────────────────────────────────────── -->
+    <section class="card" id="progress-section" hidden>
+      <h2>Execution Progress</h2>
+      <div id="progress-bar-wrap" class="progress-bar-wrap">
+        <div id="progress-bar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div id="progress-log" class="progress-log"></div>
+    </section>
+
+    <!-- ── Results Dashboard ─────────────────────────────────────────── -->
+    <section class="card" id="results-section" hidden>
+      <div class="results-header">
+        <h2>Comparative Results</h2>
+        <div class="results-actions">
+          <button type="button" class="btn btn-secondary" id="export-json-btn">Export JSON</button>
+          <button type="button" class="btn btn-secondary" id="export-csv-btn">Export CSV</button>
+          <button type="button" class="btn btn-outline" id="clear-results-btn">Clear</button>
+        </div>
+      </div>
+
+      <!-- Experiment metadata -->
+      <div id="experiment-meta" class="experiment-meta"></div>
+
+      <!-- Summary warning for synthetic data -->
+      <div id="synthetic-notice" class="status-banner has-errors" hidden>
+        ⚠ Results include synthetic labelled data. Do not interpret as real-world cybersecurity performance.
+      </div>
+
+      <!-- Metrics comparison table -->
+      <div class="table-wrap">
+        <table class="metrics-table" id="metrics-table">
+          <thead id="metrics-thead"></thead>
+          <tbody id="metrics-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Per-configuration charts -->
+      <div id="charts-section" class="charts-section">
+        <div id="chart-alerts" class="chart-card">
+          <h3>Alert Detection Rate</h3>
+          <div id="bar-alerts" class="bar-chart"></div>
+        </div>
+        <div id="chart-latency" class="chart-card">
+          <h3>Mean Latency (ms)</h3>
+          <div id="bar-latency" class="bar-chart"></div>
+        </div>
+        <div id="chart-risk" class="chart-card">
+          <h3>Mean Risk Score</h3>
+          <div id="bar-risk" class="bar-chart"></div>
+        </div>
+      </div>
+
+      <!-- Per-case details -->
+      <div id="cases-section">
+        <h3>Per-Case Details</h3>
+        <div class="cases-filter-row">
+          <label for="case-config-filter">Configuration</label>
+          <select id="case-config-filter" class="form-select form-select-sm">
+            <option value="">All</option>
+          </select>
+          <label for="case-outcome-filter">Outcome</label>
+          <select id="case-outcome-filter" class="form-select form-select-sm">
+            <option value="">All</option>
+            <option value="TP">True Positive</option>
+            <option value="FP">False Positive</option>
+            <option value="TN">True Negative</option>
+            <option value="FN">False Negative</option>
+            <option value="unknown">No Ground Truth</option>
+          </select>
+        </div>
+        <div id="cases-table-wrap" class="table-wrap">
+          <table class="cases-table" id="cases-table">
+            <thead>
+              <tr>
+                <th>Event ID</th>
+                <th>Config</th>
+                <th>Alert</th>
+                <th>Risk</th>
+                <th>LLM</th>
+                <th>Judge</th>
+                <th>RAG Hits</th>
+                <th>Ground Truth</th>
+                <th>Outcome</th>
+                <th>Latency</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cases-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Case Detail Modal ─────────────────────────────────────────── -->
+    <div id="case-modal" class="modal" hidden>
+      <div class="modal-backdrop" id="modal-backdrop"></div>
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3 id="modal-title">Case Detail</h3>
+          <button type="button" class="modal-close" id="modal-close">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- ── Experiment History ─────────────────────────────────────────── -->
+    <section class="card" id="history-section" hidden>
+      <div class="results-header">
+        <h2>Previous Experiments</h2>
+        <button type="button" class="btn btn-outline" id="close-history-btn">Close</button>
+      </div>
+      <div id="history-list"></div>
+    </section>
+
+    <!-- ── Loading Overlay ──────────────────────────────────────────── -->
+    <div class="loading" id="loading" hidden style="display:none">
+      <div class="spinner"></div>
+      <p id="loading-msg">Running evaluation…</p>
+    </div>
+
+    <!-- ── Toast ─────────────────────────────────────────────────────── -->
+    <div class="toast" id="toast" hidden></div>
+
+  </div><!-- /.container -->
+
+  <script src="/static/eval_lab.js"></script>
+</body>
+</html>

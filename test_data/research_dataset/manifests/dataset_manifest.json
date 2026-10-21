@@ -1,0 +1,119 @@
+{
+  "dataset_id": "research_synthetic_v1",
+  "name": "Research Synthetic Evaluation Dataset v1",
+  "version": "1.0.0",
+  "created": "2026-10-20",
+  "is_synthetic": true,
+  "total_scenarios": 35,
+  "total_raw_events": 55,
+  "unique_events_after_dedup": null,
+  "label_distribution": {
+    "malicious": 18,
+    "benign": 37
+  },
+  "source_distribution": {
+    "wazuh": 30,
+    "suricata": 11,
+    "firewall": 9,
+    "generic": 5
+  },
+  "multi_event_scenarios": [
+    "SOC-001",
+    "SOC-002",
+    "SOC-010",
+    "SOC-011",
+    "SOC-012",
+    "SOC-013",
+    "SOC-017",
+    "SOC-026"
+  ],
+  "single_event_scenarios": [
+    "SOC-003",
+    "SOC-004",
+    "SOC-005",
+    "SOC-006",
+    "SOC-007",
+    "SOC-008",
+    "SOC-009",
+    "SOC-014",
+    "SOC-015",
+    "SOC-016",
+    "SOC-018",
+    "SOC-019",
+    "SOC-020",
+    "SOC-021",
+    "SOC-022",
+    "SOC-023",
+    "SOC-024",
+    "SOC-025",
+    "SOC-027",
+    "SOC-028",
+    "SOC-029",
+    "SOC-030",
+    "SOC-031",
+    "SOC-032",
+    "SOC-033",
+    "SOC-034",
+    "SOC-035"
+  ],
+  "edge_cases": [
+    "SOC-009: Missing source IP and username",
+    "SOC-010: Exact duplicate events (dedup test)",
+    "SOC-017: Exact duplicate Suricata alert (dedup test)",
+    "SOC-022: Missing severity field in Suricata alert",
+    "SOC-029: Missing destination port in firewall event",
+    "SOC-031: Minimal fields (no IPs, users, or network context)",
+    "SOC-032: Conflicting information (success + error message)",
+    "SOC-035: Missing timestamp"
+  ],
+  "rule_coverage": {
+    "AUTH-001": [
+      "SOC-001",
+      "SOC-011"
+    ],
+    "PRIV-001": [
+      "SOC-005",
+      "SOC-007"
+    ],
+    "ASSET-001": [],
+    "below_threshold": [
+      "SOC-002",
+      "SOC-012"
+    ],
+    "no_rule_expected": [
+      "SOC-003",
+      "SOC-004",
+      "SOC-008",
+      "SOC-015",
+      "SOC-025",
+      "SOC-028"
+    ]
+  },
+  "rag_relevant_scenarios": [
+    "SOC-001",
+    "SOC-005",
+    "SOC-006",
+    "SOC-013",
+    "SOC-014",
+    "SOC-016",
+    "SOC-017",
+    "SOC-019",
+    "SOC-024",
+    "SOC-026",
+    "SOC-027"
+  ],
+  "configuration_mapping": {
+    "rule_based_only": "Rule-Based Only",
+    "llm_only": "LLM Only",
+    "llm_rag": "LLM + RAG",
+    "llm_rule_based": "LLM + Rule-Based",
+    "full_framework": "Proposed Complete Framework"
+  },
+  "files": {
+    "events/wazuh_scenarios.json": "30 events",
+    "events/suricata_scenarios.json": "11 events",
+    "events/firewall_scenarios.json": "9 events",
+    "events/generic_scenarios.json": "5 events",
+    "ground_truth/research_ground_truth.json": "55 labels"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "dataset_id": "synthetic_smoke_test",
+  "name": "Synthetic Smoke Test Dataset",
+  "description": "Synthetic labelled dataset for Evaluation Lab smoke testing. Labels are manually assigned based on the event content and expected rule engine behavior. NOT real-world cybersecurity ground truth.",
+  "is_synthetic": true,
+  "created_at": "2026-10-20T00:00:00Z",
+  "labels": [
+    {
+      "event_id": "SYNTHETIC_WAZUH_001",
+      "label": "malicious",
+      "expected_rule_ids": ["AUTH-BRUTE-001"],
+      "expected_risk_level": "high",
+      "notes": "5 failed SSH login attempts from a single IP within 60s — expected to trigger brute-force rule.",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "SYNTHETIC_WAZUH_002",
+      "label": "malicious",
+      "expected_rule_ids": ["PRIV-ESC-001"],
+      "expected_risk_level": "high",
+      "notes": "sudo privilege escalation attempt on a critical asset.",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "SYNTHETIC_SURICATA_001",
+      "label": "malicious",
+      "expected_rule_ids": ["NET-SCAN-001"],
+      "expected_risk_level": "medium",
+      "notes": "Suricata signature for suspicious inbound SSH from known C2 IP range.",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "SYNTHETIC_FW_001",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "expected_risk_level": null,
+      "notes": "Outbound HTTPS traffic to a known corporate CDN — expected benign.",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "SYNTHETIC_FW_002",
+      "label": "malicious",
+      "expected_rule_ids": ["NET-BLOCK-001"],
+      "expected_risk_level": "medium",
+      "notes": "Firewall block on suspicious outbound connection to port 4444.",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "SYNTHETIC_GENERIC_001",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "expected_risk_level": null,
+      "notes": "Normal user authentication success — expected benign.",
+      "is_synthetic": true
+    }
+  ]
+}

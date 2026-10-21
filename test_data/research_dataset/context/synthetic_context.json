@@ -1,0 +1,204 @@
+{
+  "$schema_version": "1.0.0",
+  "dataset_id": "research_synthetic_v1",
+  "description": "Synthetic contextual enrichment and RAG knowledge store records corresponding to the mock and vectorstore data supported by the SOC Analyst Co-Pilot prototype. These records provide the context referenced across the 35 synthetic evaluation scenarios.",
+  "is_synthetic": true,
+  "last_updated": "2026-10-20",
+  "assets": [
+    {
+      "asset_id": "ASST-001",
+      "ip_address": "10.0.0.5",
+      "hostname": "web-prod-01",
+      "asset_type": "Server",
+      "environment": "Production",
+      "criticality": "High",
+      "owner": "Web Engineering Team",
+      "operating_system": "Linux Ubuntu 22.04 LTS",
+      "notes": "Target of brute force (SOC-001, SOC-011) and C2 egress (SOC-016, SOC-024)."
+    },
+    {
+      "asset_id": "ASST-002",
+      "ip_address": "10.0.0.50",
+      "hostname": "db-prod-01",
+      "asset_type": "Database",
+      "environment": "Production",
+      "criticality": "Critical",
+      "owner": "Data Platform Team",
+      "operating_system": "Linux RHEL 9",
+      "notes": "High criticality asset. Exercises ASSET-001 detection rule when involved."
+    },
+    {
+      "asset_id": "ASST-003",
+      "ip_address": "192.168.1.100",
+      "hostname": "workstation-john",
+      "asset_type": "Workstation",
+      "environment": "Corporate",
+      "criticality": "Low",
+      "owner": "John Doe",
+      "operating_system": "Windows 11 Enterprise",
+      "notes": "Source of benign below-threshold failed logins (SOC-002)."
+    }
+  ],
+  "users": [
+    {
+      "user_id": "U-1001",
+      "username": "john.doe",
+      "role": "Employee",
+      "privilege_level": "Standard",
+      "department": "Engineering",
+      "notes": "Standard employee account; used in benign failed login scenarios."
+    },
+    {
+      "user_id": "U-0001",
+      "username": "admin",
+      "role": "System Administrator",
+      "privilege_level": "Root",
+      "department": "Infrastructure & SecOps",
+      "notes": "Privileged administrative user. Triggers PRIV-001 rule condition."
+    },
+    {
+      "user_id": "U-0000",
+      "username": "system",
+      "role": "Service Account",
+      "privilege_level": "System",
+      "department": "Core Platform",
+      "notes": "Automated daemon account. Used in routine maintenance scenarios (SOC-007, SOC-033)."
+    }
+  ],
+  "threat_intelligence": [
+    {
+      "indicator": "185.20.10.1",
+      "indicator_type": "ipv4",
+      "threat_family": "APT29",
+      "confidence": "High",
+      "supporting_evidence": [
+        "Known C2 IP observed in recent campaign",
+        "Associated with password guessing and SSH enumeration"
+      ],
+      "first_seen": "2026-09-01T00:00:00Z",
+      "status": "active_malicious"
+    },
+    {
+      "indicator": "malicious.com",
+      "indicator_type": "domain",
+      "threat_family": "Emotet",
+      "confidence": "Medium",
+      "supporting_evidence": [
+        "Domain associated with phishing campaigns and payload staging"
+      ],
+      "first_seen": "2026-09-15T00:00:00Z",
+      "status": "active_malicious"
+    }
+  ],
+  "l2_curated_knowledge": [
+    {
+      "id": "KB-001",
+      "category": "threat_behavior",
+      "content": "APT29 is known to use compromised infrastructure and valid accounts to maintain persistence.",
+      "tags": ["APT29", "Persistence", "T1078"]
+    },
+    {
+      "id": "KB-002",
+      "category": "mitre_technique",
+      "content": "T1110 - Brute Force: Adversaries may use brute force techniques to attempt access to accounts when passwords are unknown.",
+      "tags": ["T1110", "Credential Access", "Brute Force"]
+    },
+    {
+      "id": "KB-003",
+      "category": "mitre_technique",
+      "content": "T1548 - Abuse Elevation Control Mechanism: Adversaries may circumvent mechanisms designed to control elevate privileges to gain higher-level permissions.",
+      "tags": ["T1548", "Privilege Escalation", "sudo", "UAC"]
+    },
+    {
+      "id": "KB-004",
+      "category": "ioc_context",
+      "content": "IP 185.20.10.1 is a known command and control (C2) server associated with multiple recent campaigns.",
+      "tags": ["185.20.10.1", "C2", "IOC"]
+    }
+  ],
+  "rag_knowledge_documents": [
+    {
+      "document_id": "SEC-KB-001",
+      "title": "Unauthorized privileged access",
+      "text": "Unauthorized privileged access can indicate privilege escalation or misuse of administrative credentials. Investigate which account elevated, from which host, and whether the elevation matches an approved change.",
+      "source": "internal_playbook",
+      "category": "privilege_escalation",
+      "technique_id": "T1548",
+      "tactic": "Privilege Escalation",
+      "platform": "Linux",
+      "severity": "high",
+      "tags": ["sudo", "root", "privilege"]
+    },
+    {
+      "document_id": "SEC-KB-002",
+      "title": "Valid Accounts",
+      "text": "Valid Accounts is a MITRE ATT&CK technique involving the use of legitimate credentials to gain access. Adversaries reuse stolen credentials so their activity blends in with normal authentication traffic.",
+      "source": "mitre_attack",
+      "category": "credential_access",
+      "technique_id": "T1078",
+      "tactic": "Defense Evasion",
+      "severity": "high",
+      "tags": ["credentials", "valid accounts"]
+    },
+    {
+      "document_id": "SEC-KB-003",
+      "title": "Baseline authentication behaviour",
+      "text": "Normal authentication events do not necessarily indicate malicious activity. A single successful login from a known host and a usual time window is expected behaviour and should not be escalated on its own.",
+      "source": "internal_playbook",
+      "category": "authentication",
+      "severity": "low",
+      "tags": ["login", "baseline"]
+    },
+    {
+      "document_id": "SEC-KB-004",
+      "title": "Brute Force",
+      "text": "Brute Force covers repeated authentication attempts against one or many accounts. A burst of failures from a single source IP followed by a success is a strong indicator of a successful password guessing attack.",
+      "source": "mitre_attack",
+      "category": "credential_access",
+      "technique_id": "T1110",
+      "tactic": "Credential Access",
+      "severity": "high",
+      "tags": ["brute force", "authentication_failure"]
+    },
+    {
+      "document_id": "SEC-KB-005",
+      "title": "Command and control traffic",
+      "text": "Outbound traffic to a known command and control server suggests an already compromised host. Isolate the host and review what was transferred before the connection was observed.",
+      "source": "internal_playbook",
+      "category": "command_and_control",
+      "technique_id": "T1071",
+      "tactic": "Command and Control",
+      "platform": "Linux",
+      "severity": "critical",
+      "tags": ["c2", "egress"]
+    },
+    {
+      "document_id": "SEC-KB-006",
+      "title": "UAC bypass",
+      "text": "Windows User Account Control bypasses let a process run with elevated integrity without prompting the user. Look for auto-elevating binaries and unusual parent-child process chains.",
+      "source": "internal_playbook",
+      "category": "privilege_escalation",
+      "technique_id": "T1548",
+      "tactic": "Privilege Escalation",
+      "platform": "Windows",
+      "severity": "high",
+      "tags": ["uac", "windows"]
+    }
+  ],
+  "context_availability_matrix": {
+    "complete_context_scenarios": [
+      "SOC-001", "SOC-002", "SOC-004", "SOC-005", "SOC-007",
+      "SOC-011", "SOC-012", "SOC-013", "SOC-014", "SOC-015",
+      "SOC-016", "SOC-017", "SOC-019", "SOC-021", "SOC-024",
+      "SOC-025", "SOC-026", "SOC-027", "SOC-028"
+    ],
+    "partial_context_scenarios": [
+      "SOC-003", "SOC-006", "SOC-008", "SOC-010", "SOC-018",
+      "SOC-020", "SOC-022", "SOC-023", "SOC-029", "SOC-030",
+      "SOC-032", "SOC-033", "SOC-034"
+    ],
+    "missing_or_ambiguous_context_scenarios": [
+      "SOC-009", "SOC-031", "SOC-035"
+    ]
+  }
+}

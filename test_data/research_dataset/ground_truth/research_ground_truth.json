@@ -1,0 +1,417 @@
+{
+  "dataset_id": "research_synthetic_v1",
+  "name": "Research Synthetic Evaluation Dataset v1",
+  "description": "35 synthetic cybersecurity scenarios (55 raw events) across Wazuh, Suricata, Firewall, and Generic sources. Includes malicious, benign, suspicious, and edge-case events for fair comparison of five analysis architectures. Labels are manually assigned based on event content and are SYNTHETIC — not verified real-world incident outcomes.",
+  "is_synthetic": true,
+  "labels": [
+    {
+      "event_id": "6b31f334aaf83950",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-001] Brute force: 5 failures from 185.20.10.1 (known C2) targeting admin on critical asset. AUTH-001 threshold should trigger. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "2ff8491fcda73788",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-001] Part of brute force sequence. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "19ee6a5aacba689b",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-001] Part of brute force sequence. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "3f6f6c0dd5987489",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-001] Part of brute force sequence. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "cfc62de18736219d",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-001] Part of brute force sequence. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "98bc0e1feb29af8f",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "notes": "[SOC-001] Successful login after brute force — strong indicator of compromise. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "f2ab44b4207552e2",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-002] 3 failed logins from internal IP 192.168.1.100 by known user jsmith. Below AUTH-001 threshold of 5. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "8bc5ff44ca893213",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-002] Part of below-threshold sequence. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "9493d24dfb932377",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-002] Part of below-threshold sequence. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "33b21ff732b67aa1",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-003] Single failed login — likely a password typo from internal IP. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "82200304a7bfe134",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-004] Normal successful SSH login from internal admin IP during business hours. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "cc7851ac2fbb2797",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "PRIV-001"
+      ],
+      "notes": "[SOC-005] Privilege escalation via sudo by user admin from known C2 IP. PRIV-001 should trigger (admin is in privileged users). | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "c6b2d74dcec48fc6",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "notes": "[SOC-006] Suspicious process execution: bash with curl downloading payload from malicious.com. Indicates post-exploitation. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "87b5be44e973402f",
+      "label": "benign",
+      "expected_rule_ids": [
+        "PRIV-001"
+      ],
+      "notes": "[SOC-007] Normal system administration: system user running logrotate via sudo. Privilege level is 'System' but activity is routine. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "6c6ca198b11d0fe9",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-008] Failed login for non-existent user 'guest' from external IP. Suspicious but no confirmed malicious outcome. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "e79e25bc9dfec5df",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-009] Authentication failure with missing source IP and username. Insufficient data for confident classification. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "3981406e5e5b9922",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-010] Duplicate event — L1 deduplication should remove the second copy. Single failed login from 198.51.100.5. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "a8e9d5377239c974",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-010] Exact duplicate of SOC-010-E01. Should be deduplicated by L1 SHA-256 fingerprint. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "1410e6bae3f99e49",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-011] Brute force: exactly 5 failures from 203.0.113.50 targeting admin. At AUTH-001 threshold boundary. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "95722fde94c8492e",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-011] Part of brute force at threshold boundary. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "f1be867573d361a2",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-011] Part of brute force at threshold boundary. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "52c8bedadce1aee5",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-011] Part of brute force at threshold boundary. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "19e1acfe9f963249",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "notes": "[SOC-011] Part of brute force at threshold boundary. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "72b5467209d8aa64",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-012] 4 failed logins from internal IP 192.168.1.50. Below AUTH-001 threshold of 5. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "567f1222fb483cda",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-012] Part of below-threshold sequence. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "d8418f63f590196b",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-012] Part of below-threshold sequence. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "33211c46cbcc3aec",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-012] Part of below-threshold sequence. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "5db94f7e4cf2be2c",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-013] 2 failed logins from external IP 203.0.113.10, then success from different internal IP 10.0.1.50. Suspicious but could be admin switching networks. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "554741029c329407",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-013] Part of suspicious-but-inconclusive sequence. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "efa2cb63a83f8764",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-013] Successful login from different IP than failures. Inconclusive — could be legitimate admin access. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "8483b3651147758f",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "notes": "[SOC-014] SSH connection from known C2 IP 185.20.10.1. Suricata flagged as suspicious. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "42ee193dc54091ce",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-015] Normal outbound HTTP flow to 93.184.216.34 (example.com). No alert generated. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "08d80c6d906d702c",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "notes": "[SOC-016] Emotet malware download detected by Suricata. Compromised host making outbound connection. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "f8141d3e9f27166d",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "notes": "[SOC-017] C2 beaconing to 185.20.10.1. APT29 infrastructure. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "3955fae2574629fc",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "notes": "[SOC-017] Exact duplicate of SOC-017-E01. Should be deduplicated by L1. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "91f4e79e9188f19a",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-018] DNS query to update.suspicious-software-test.com. Domain name looks suspicious but no alert generated and no known IOC match. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "f2e7305842ee8f41",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "notes": "[SOC-019] C2 beaconing behavior detected by Suricata. APT29 beaconing to 185.20.10.1. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "626511df1e6f1c87",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-020] Port scan alert from 198.51.100.20. Low severity (3). Suspicious but no confirmed malicious activity. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "ac26eed65a5fe29c",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-021] Normal TLS connection to Cloudflare CDN. Legitimate traffic. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "caf3e15f31244eba",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-022] Alert with missing severity field. Informational signature only. Edge case for schema handling. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "e31e86a02c9d7a64",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-023] Low severity (3) informational DNS alert. Not suspicious traffic. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "a12721396a424a12",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-024] Firewall blocked outbound to port 4444 (common C2 port). Suspicious but firewall already blocked — no confirmed compromise. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "5960d32e155ee55b",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-025] Normal outbound HTTPS to 1.1.1.1 (Cloudflare DNS). Routine traffic. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "208ca01513b0da27",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-026] Inbound HTTPS from known C2 IP 185.20.10.1 allowed by firewall rule. Suspicious but no rule engine trigger for firewall events. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "62debbcd3eb6b63f",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-026] Part of repeated inbound from C2 IP. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "d33d1a8e76699bd6",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-026] Part of repeated inbound from C2 IP. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "9b0b2d9a47403629",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-027] Firewall blocked outbound SMB to 185.20.10.1. Suspicious but blocked — no confirmed compromise. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "745ada5059ad1820",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-028] Normal outbound DNS to 8.8.8.8. Routine traffic. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "2121ec347d445a7a",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-029] Firewall allow with missing destination port. Edge case for schema completeness. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "efc4311e573d9730",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-030] Inbound SSH from external IP 203.0.113.99 allowed by firewall rule. Suspicious but no rule engine trigger for firewall events. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "3b4c43c9bc49751c",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-031] Minimal event with just event_type and message. No IPs, users, or network context. Insufficient evidence for classification. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "1d47d87a1b78aba6",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-032] Conflicting event: authentication_success event_type but error message with 401 code. Ambiguous — labeled benign due to lack of confirmed malicious outcome. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "340241152ddee3ba",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-033] Normal cron job execution at 03:00 UTC. System user running backup script. Routine administrative activity. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "497d2f0d323dd6e2",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-034] Successful login at 02:30 UTC (unusual time). Suspicious but no other indicators. Labeled benign due to internal source IP and known user. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "dd9b7c6da7c7dd63",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "notes": "[SOC-035] Event with missing timestamp. Edge case for normalization. Internal network connection — no threat indicators. | RAG relevant: False",
+      "is_synthetic": true
+    }
+  ]
+}

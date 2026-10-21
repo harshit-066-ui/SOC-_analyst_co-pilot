@@ -1,0 +1,46 @@
+[
+  {
+    "id": "SOC-031-E01",
+    "timestamp": "2026-10-20T16:00:00Z",
+    "event_type": "system_event",
+    "message": "Scheduled system check completed"
+  },
+  {
+    "id": "SOC-032-E01",
+    "timestamp": "2026-10-20T16:30:00Z",
+    "event_type": "authentication_success",
+    "action": "success",
+    "src_ip": "10.0.0.5",
+    "dst_ip": "10.0.0.50",
+    "user": "system",
+    "message": "Authentication succeeded but service returned error code 401"
+  },
+  {
+    "id": "SOC-033-E01",
+    "timestamp": "2026-10-20T03:00:00Z",
+    "event_type": "process_execution",
+    "action": "executed",
+    "src_ip": "127.0.0.1",
+    "user": "system",
+    "process": "cron",
+    "message": "cron job /usr/local/bin/backup.sh executed successfully"
+  },
+  {
+    "id": "SOC-034-E01",
+    "timestamp": "2026-10-20T02:30:00Z",
+    "event_type": "authentication_success",
+    "action": "success",
+    "src_ip": "10.0.1.50",
+    "dst_ip": "10.0.0.5",
+    "user": "admin",
+    "message": "User admin logged in at 02:30 UTC"
+  },
+  {
+    "id": "SOC-035-E01",
+    "event_type": "network_connection",
+    "action": "allow",
+    "src_ip": "10.0.0.5",
+    "dst_ip": "10.0.0.50",
+    "message": "Internal network connection allowed"
+  }
+]

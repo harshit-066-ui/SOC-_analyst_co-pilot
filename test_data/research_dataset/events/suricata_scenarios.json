@@ -1,0 +1,190 @@
+[
+  {
+    "id": "SOC-014-E01",
+    "timestamp": "2026-10-20T08:00:01Z",
+    "event_type": "alert",
+    "src_ip": "185.20.10.1",
+    "src_port": 49100,
+    "dest_ip": "10.0.0.5",
+    "dest_port": 22,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2010935,
+      "category": "Attempted Administrator Privilege Gain",
+      "severity": 2,
+      "signature": "ET SCAN Suspicious inbound SSH connection attempt from known C2"
+    },
+    "flow_id": "suricata-soc014"
+  },
+  {
+    "id": "SOC-015-E01",
+    "timestamp": "2026-10-20T09:00:00Z",
+    "event_type": "flow",
+    "src_ip": "10.0.0.5",
+    "src_port": 51000,
+    "dest_ip": "93.184.216.34",
+    "dest_port": 80,
+    "proto": "TCP",
+    "flow_id": "suricata-soc015"
+  },
+  {
+    "id": "SOC-016-E01",
+    "timestamp": "2026-10-20T08:12:30Z",
+    "event_type": "alert",
+    "src_ip": "10.0.0.5",
+    "src_port": 54321,
+    "dest_ip": "93.184.216.34",
+    "dest_port": 80,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2024363,
+      "category": "A Network Trojan was detected",
+      "severity": 1,
+      "signature": "ET MALWARE Known Emotet malicious.com domain resolution and payload download"
+    },
+    "flow_id": "suricata-soc016",
+    "message": "Detected malware download from malicious.com"
+  },
+  {
+    "id": "SOC-017-E01",
+    "timestamp": "2026-10-20T10:00:00Z",
+    "event_type": "alert",
+    "src_ip": "10.0.0.5",
+    "src_port": 55000,
+    "dest_ip": "185.20.10.1",
+    "dest_port": 443,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2023001,
+      "category": "C2 Communication",
+      "severity": 1,
+      "signature": "ET CNC APT29 beaconing behavior detected"
+    },
+    "flow_id": "suricata-soc017",
+    "message": "Beaconing to 185.20.10.1"
+  },
+  {
+    "id": "SOC-017-E02",
+    "timestamp": "2026-10-20T10:00:00Z",
+    "event_type": "alert",
+    "src_ip": "10.0.0.5",
+    "src_port": 55000,
+    "dest_ip": "185.20.10.1",
+    "dest_port": 443,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2023001,
+      "category": "C2 Communication",
+      "severity": 1,
+      "signature": "ET CNC APT29 beaconing behavior detected"
+    },
+    "flow_id": "suricata-soc017",
+    "message": "Beaconing to 185.20.10.1"
+  },
+  {
+    "id": "SOC-018-E01",
+    "timestamp": "2026-10-20T11:00:00Z",
+    "event_type": "dns",
+    "src_ip": "10.0.0.50",
+    "src_port": 53000,
+    "dest_ip": "8.8.8.8",
+    "dest_port": 53,
+    "proto": "UDP",
+    "dns": {
+      "query": "update.suspicious-software-test.com",
+      "type": "A"
+    },
+    "flow_id": "suricata-soc018"
+  },
+  {
+    "id": "SOC-019-E01",
+    "timestamp": "2026-10-20T10:05:00Z",
+    "event_type": "alert",
+    "src_ip": "10.0.0.5",
+    "src_port": 55100,
+    "dest_ip": "185.20.10.1",
+    "dest_port": 443,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2023001,
+      "category": "C2 Communication",
+      "severity": 1,
+      "signature": "ET CNC APT29 beaconing behavior detected"
+    },
+    "flow_id": "suricata-soc019",
+    "message": "Beaconing to 185.20.10.1"
+  },
+  {
+    "id": "SOC-020-E01",
+    "timestamp": "2026-10-20T12:00:00Z",
+    "event_type": "alert",
+    "src_ip": "198.51.100.20",
+    "src_port": 40000,
+    "dest_ip": "10.0.0.5",
+    "dest_port": 1,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2010945,
+      "category": "Informational",
+      "severity": 3,
+      "signature": "ET SCAN Potential SSH Scan"
+    },
+    "flow_id": "suricata-soc020"
+  },
+  {
+    "id": "SOC-021-E01",
+    "timestamp": "2026-10-20T13:00:00Z",
+    "event_type": "tls",
+    "src_ip": "10.0.0.5",
+    "src_port": 52000,
+    "dest_ip": "172.67.182.201",
+    "dest_port": 443,
+    "proto": "TCP",
+    "tls": {
+      "subject": "CN=cdn.cloudflare.net",
+      "issuer": "CN=DigiCert TLS Hybrid ECC SHA384"
+    },
+    "flow_id": "suricata-soc021"
+  },
+  {
+    "id": "SOC-022-E01",
+    "timestamp": "2026-10-20T14:00:00Z",
+    "event_type": "alert",
+    "src_ip": "10.0.0.50",
+    "src_port": 56000,
+    "dest_ip": "203.0.113.5",
+    "dest_port": 8080,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 999999,
+      "category": "Informational",
+      "signature": "ET INFO Suspicious HTTP User-Agent"
+    },
+    "flow_id": "suricata-soc022"
+  },
+  {
+    "id": "SOC-023-E01",
+    "timestamp": "2026-10-20T15:00:00Z",
+    "event_type": "alert",
+    "src_ip": "10.0.0.5",
+    "src_port": 57000,
+    "dest_ip": "1.1.1.1",
+    "dest_port": 53,
+    "proto": "UDP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2010936,
+      "category": "Not Suspicious Traffic",
+      "severity": 3,
+      "signature": "ET INFO DNS Query to . local domain"
+    },
+    "flow_id": "suricata-soc023"
+  }
+]

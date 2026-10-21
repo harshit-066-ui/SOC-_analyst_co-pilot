@@ -1,4 +1,4 @@
-"""Cyber Defense Harness — L1 -> L2 -> Part 2 -> L3 API."""
+"""Cyber Defense Harness — L1 -> L2 -> Part 2 -> L3 API + Evaluation Lab."""
 
 from pathlib import Path
 
@@ -12,12 +12,13 @@ from l2.api.enrichment_routes import router as l2_router
 from l3.api.analysis_routes import router as l3_router
 from part2.api.assessment_routes import router as part2_router
 from pipeline.routes import router as pipeline_router
+from evaluation.routes import router as eval_router
 
 app = FastAPI(
     title="Cyber Defense Harness — L1, L2, Part 2 & L3",
     description=(
         "Event Collection, Normalization, Enrichment, Rules & Risk Assessment, "
-        "LLM Reasoning, Judge & XAI"
+        "LLM Reasoning, Judge & XAI — with Evaluation Lab"
     ),
     version="1.0.0",
 )
@@ -35,6 +36,7 @@ app.include_router(l2_router)
 app.include_router(part2_router)
 app.include_router(l3_router)
 app.include_router(pipeline_router)
+app.include_router(eval_router)
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 if FRONTEND_DIR.exists():
@@ -49,6 +51,15 @@ async def root():
     return {"message": "L1 API running. Place frontend at backend/../frontend/index.html"}
 
 
+@app.get("/eval-lab")
+async def eval_lab():
+    """Serve the Evaluation Lab frontend page."""
+    page = FRONTEND_DIR / "eval_lab.html"
+    if page.exists():
+        return FileResponse(page)
+    return {"message": "Evaluation Lab frontend not found at frontend/eval_lab.html"}
+
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "modules": ["L1", "L2", "Part2", "L3"]}
+    return {"status": "ok", "modules": ["L1", "L2", "Part2", "L3", "EvaluationLab"]}
