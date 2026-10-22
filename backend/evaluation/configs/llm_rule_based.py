@@ -33,9 +33,11 @@ def _index_enriched(
 ) -> dict[str, ContextEnrichedEvent]:
     index: dict[str, ContextEnrichedEvent] = {}
     for enriched in enriched_list:
-        eid = enriched.event.get("event_id")
-        if eid is not None:
-            index[str(eid)] = enriched
+        event = getattr(enriched, "event", {})
+        if isinstance(event, dict):
+            eid = event.get("event_id")
+            if eid is not None:
+                index[str(eid)] = enriched
     return index
 
 

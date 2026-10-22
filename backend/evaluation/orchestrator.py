@@ -167,7 +167,10 @@ def _run_single_config(
         # Map raw results into typed CaseConfigResult objects
         for raw in raw_results:
             event_id = str(raw.get("event_id", ""))
-            status = "failed" if raw.get("error") and not raw.get("alert_fired") and raw.get("llm_status") not in ("available", "not_run") else "completed"
+            status = "failed" if (
+                raw.get("status") == "failed"
+                or (raw.get("error") and not raw.get("alert_fired") and raw.get("llm_status") not in ("available", "not_run"))
+            ) else "completed"
             case_results.append(_make_case_result(config_id, event_id, raw, status))
 
         # Ensure every input event has a result (fill gaps from failed batches)

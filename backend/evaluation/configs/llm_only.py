@@ -9,16 +9,20 @@ Any risk estimate is clearly labelled as LLM-derived, not authoritative.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
-from datetime import datetime
 from typing import Any
 
+from evaluation.configs.common import (
+    safe_dict,
+    safe_list,
+    safe_str,
+    validate_evaluation_response,
+)
 from l2.enricher import enrich_event
 from l2.models import ContextEnrichedEvent
+from l3.config import OPENROUTER_MAX_TOKENS
 from l3.reasoning.openrouter_client import LLMUnavailableError, OpenRouterClient
-from l3.config import OPENROUTER_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -35,74 +39,96 @@ Do NOT invent:
   - risk scores (any score you provide is an estimate and must be labelled as such)
   - MITRE techniques not clearly evidenced by the data
 
-Respond with a single valid JSON object:
+Provide a concise, evidence-grounded assessment. Keep summary and reasoning to 1-2 sentences each.
+Respond with ONLY a single valid JSON object adhering strictly to this schema:
 {
   "classification": "<malicious|benign|uncertain>",
   "confidence": "<low|medium|high>",
-  "summary": "<1-2 sentence overview>",
-  "reasoning": "<step-by-step reasoning from evidence>",
+  "summary": "<1-2 sentence concise overview>",
+  "reasoning": "<1-2 sentence concise reasoning from evidence>",
   "estimated_severity": "<low|medium|high|critical>",
   "estimated_risk_score": <0-100 integer, clearly an LLM estimate>,
   "mitre_techniques": ["<technique if clearly evidenced, else empty list>"],
   "recommendations": ["<action 1>", "..."],
   "uncertainty_reasons": ["<reason>", "..."]
 }
-Rules:
+
+Strict Rules:
+- classification MUST be exactly one of: "malicious", "benign", or "uncertain".
 - estimated_risk_score is your estimate ONLY — it is NOT authoritative.
-- Return ONLY the JSON object.
+- Return ONLY the raw JSON object. Do not wrap in markdown or include conversational text.
 """
 
 
 def _build_event_prompt(enriched: ContextEnrichedEvent) -> str:
     """Build a prompt from an enriched event without rule findings."""
-    event = enriched.event
-    entities = enriched.entities
-    asset = enriched.asset_context
-    user = enriched.user_context
-    threat = enriched.threat_context
-    mitre = enriched.mitre_attack
+    event = getattr(enriched, "event", {})
+    if not isinstance(event, dict):
+        event = {}
+
+    asset = getattr(enriched, "asset_context", None)
+    user = getattr(enriched, "user_context", None)
+    threat = getattr(enriched, "threat_context", None)
+    mitre = getattr(enriched, "mitre_attack", None)
+
+    source_platform = safe_str(event.get("source_platform"), default="unknown")
+    event_type = safe_str(event.get("event_type"), default="unknown")
+    timestamp = safe_str(event.get("timestamp"), default="unknown")
+    action = safe_str(event.get("action"), default="unknown")
+    message = safe_str(event.get("message"), default="not available", max_len=300)
 
     lines = [
         "=== [EVENT CONTEXT] ===",
-        f"Source Platform : {event.get('source_platform', 'unknown')}",
-        f"Event Type      : {event.get('event_type', 'unknown')}",
-        f"Timestamp       : {event.get('timestamp', 'unknown')}",
-        f"Action          : {event.get('action', 'unknown')}",
-        f"Message         : {event.get('message', 'not available')[:300]}",
+        f"Source Platform : {source_platform}",
+        f"Event Type      : {event_type}",
+        f"Timestamp       : {timestamp}",
+        f"Action          : {action}",
+        f"Message         : {message}",
     ]
-    src = event.get("source", {})
-    dst = event.get("destination", {})
+
+    src = safe_dict(event.get("source"))
+    dst = safe_dict(event.get("destination"))
     if src.get("ip"):
-        lines.append(f"Source IP       : {src['ip']}")
+        lines.append(f"Source IP       : {safe_str(src['ip'])}")
     if dst.get("ip"):
-        lines.append(f"Destination IP  : {dst['ip']}")
-    if src.get("port"):
-        lines.append(f"Source Port     : {src['port']}")
-    if dst.get("port"):
-        lines.append(f"Destination Port: {dst['port']}")
+        lines.append(f"Destination IP  : {safe_str(dst['ip'])}")
+    if src.get("port") is not None:
+        lines.append(f"Source Port     : {safe_str(src['port'])}")
+    if dst.get("port") is not None:
+        lines.append(f"Destination Port: {safe_str(dst['port'])}")
+
+    usr_evt = safe_dict(event.get("user"))
+    if usr_evt.get("name"):
+        lines.append(f"Event User      : {safe_str(usr_evt['name'])}")
+
+    proc_evt = safe_dict(event.get("process"))
+    if proc_evt.get("name"):
+        lines.append(f"Process Name    : {safe_str(proc_evt['name'])}")
 
     lines.append("")
     lines.append("=== [ASSET CONTEXT] ===")
-    lines.append(f"Asset Criticality : {getattr(asset, 'criticality', 'unknown')}")
-    lines.append(f"Asset Type        : {getattr(asset, 'asset_type', 'unknown')}")
-    lines.append(f"Hostname          : {getattr(asset, 'hostname', 'unknown')}")
+    lines.append(f"Asset Criticality : {safe_str(getattr(asset, 'criticality', None), default='unknown')}")
+    lines.append(f"Asset Type        : {safe_str(getattr(asset, 'asset_type', None), default='unknown')}")
+    lines.append(f"Hostname          : {safe_str(getattr(asset, 'hostname', None), default='unknown')}")
 
     lines.append("")
     lines.append("=== [USER CONTEXT] ===")
-    lines.append(f"Username          : {getattr(user, 'username', 'unknown')}")
-    lines.append(f"Privilege Level   : {getattr(user, 'privilege_level', 'unknown')}")
+    lines.append(f"Username          : {safe_str(getattr(user, 'username', None), default='unknown')}")
+    lines.append(f"Privilege Level   : {safe_str(getattr(user, 'privilege_level', None), default='unknown')}")
 
-    if getattr(threat, "ioc_matches", None):
+    ioc_matches = getattr(threat, "ioc_matches", None)
+    if isinstance(ioc_matches, list) and ioc_matches:
         lines.append("")
         lines.append("=== [THREAT INDICATORS] ===")
-        for ioc in threat.ioc_matches[:5]:
-            lines.append(f"  IOC: {ioc}")
+        for ioc in ioc_matches[:5]:
+            lines.append(f"  IOC: {safe_str(ioc)}")
 
-    if getattr(mitre, "techniques", None):
+    techniques = getattr(mitre, "techniques", None)
+    if isinstance(techniques, list) and techniques:
         lines.append("")
         lines.append("=== [L2 MITRE HINTS] ===")
-        for t in mitre.techniques[:3]:
-            lines.append(f"  {t}")
+        for t in techniques[:3]:
+            lines.append(f"  {safe_str(t)}")
 
     lines.append("")
     lines.append("=== [INSTRUCTIONS] ===")
@@ -137,7 +163,7 @@ def run(
 
     # Step 2: LLM analysis per event (no rule findings, no RAG)
     for event, enriched in zip(normalized_events, enriched_list):
-        event_id = str(event.get("event_id", ""))
+        event_id = str(event.get("event_id", "")) if isinstance(event, dict) else ""
         t0 = time.perf_counter()
         try:
             prompt = _build_event_prompt(enriched)
@@ -145,14 +171,16 @@ def run(
                 system_prompt=_SYSTEM_PROMPT,
                 user_prompt=prompt,
                 temperature=0.1,
-                max_tokens=1024,
+                max_tokens=OPENROUTER_MAX_TOKENS,
+                validator=validate_evaluation_response,
             )
-            parsed = _parse_llm_response(raw_text)
+            parsed = validate_evaluation_response(raw_text)
             latency_ms = (time.perf_counter() - t0) * 1000
 
             results.append(
                 {
                     "event_id": event_id,
+                    "status": "completed",
                     "alert_fired": parsed.get("classification") == "malicious",
                     "rule_ids_fired": [],
                     "rule_names_fired": [],
@@ -181,6 +209,7 @@ def run(
             results.append(
                 {
                     "event_id": event_id,
+                    "status": "failed",
                     "alert_fired": False,
                     "rule_ids_fired": [],
                     "rule_names_fired": [],
@@ -202,13 +231,15 @@ def run(
             results.append(
                 {
                     "event_id": event_id,
+                    "status": "failed",
                     "alert_fired": False,
                     "rule_ids_fired": [],
                     "rule_names_fired": [],
                     "risk_score": None,
                     "risk_level": None,
                     "risk_score_source": "none",
-                    "llm_status": "partial",
+                    "llm_status": "failed",
+                    "llm_model": getattr(client, "model", None),
                     "latency_ms": latency_ms,
                     "error": str(exc),
                     "raw_output": {},
@@ -216,39 +247,3 @@ def run(
             )
 
     return results, errors
-
-
-def _parse_llm_response(raw_text: str) -> dict[str, Any]:
-    """Extract JSON from LLM response with fallback heuristics."""
-    import re
-    text = raw_text.strip()
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-
-    # Markdown fence
-    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except json.JSONDecodeError:
-            pass
-
-    # Direct parse
-    try:
-        obj = json.loads(text)
-        if isinstance(obj, dict):
-            return obj
-    except json.JSONDecodeError:
-        pass
-
-    # Brace fallback
-    fb = text.find("{")
-    lb = text.rfind("}")
-    if fb != -1 and lb > fb:
-        try:
-            obj = json.loads(text[fb : lb + 1])
-            if isinstance(obj, dict):
-                return obj
-        except json.JSONDecodeError:
-            pass
-
-    raise ValueError(f"No valid JSON found in LLM response: {text[:200]}")

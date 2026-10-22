@@ -1,0 +1,78 @@
+{
+  "dataset_id": "reduced_eval_v1",
+  "name": "Reduced Evaluation Dataset v1",
+  "description": "Reduced dataset containing 8 representative events selected from the Research Synthetic Evaluation Dataset v1. Events span Wazuh (brute force), Suricata (C2 SSH, normal HTTP, malware download), and Firewall (blocked outbound, normal HTTPS) sources. Labels and event IDs are copied exactly from the original research ground truth. SYNTHETIC — not verified real-world incident outcomes.",
+  "is_synthetic": true,
+  "labels": [
+    {
+      "event_id": "6b31f334aaf83950",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "expected_risk_level": null,
+      "notes": "[SOC-001] Brute force: 5 failures from 185.20.10.1 (known C2) targeting admin on critical asset. AUTH-001 threshold should trigger. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "2ff8491fcda73788",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "expected_risk_level": null,
+      "notes": "[SOC-001] Part of brute force sequence. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "19ee6a5aacba689b",
+      "label": "malicious",
+      "expected_rule_ids": [
+        "AUTH-001"
+      ],
+      "expected_risk_level": null,
+      "notes": "[SOC-001] Part of brute force sequence. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "8483b3651147758f",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "expected_risk_level": null,
+      "notes": "[SOC-014] SSH connection from known C2 IP 185.20.10.1. Suricata flagged as suspicious. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "42ee193dc54091ce",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "expected_risk_level": null,
+      "notes": "[SOC-015] Normal outbound HTTP flow to 93.184.216.34 (example.com). No alert generated. | RAG relevant: False",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "08d80c6d906d702c",
+      "label": "malicious",
+      "expected_rule_ids": [],
+      "expected_risk_level": null,
+      "notes": "[SOC-016] Emotet malware download detected by Suricata. Compromised host making outbound connection. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "a12721396a424a12",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "expected_risk_level": null,
+      "notes": "[SOC-024] Firewall blocked outbound to port 4444 (common C2 port). Suspicious but firewall already blocked — no confirmed compromise. | RAG relevant: True",
+      "is_synthetic": true
+    },
+    {
+      "event_id": "5960d32e155ee55b",
+      "label": "benign",
+      "expected_rule_ids": [],
+      "expected_risk_level": null,
+      "notes": "[SOC-025] Normal outbound HTTPS to 1.1.1.1 (Cloudflare DNS). Routine traffic. | RAG relevant: False",
+      "is_synthetic": true
+    }
+  ]
+}

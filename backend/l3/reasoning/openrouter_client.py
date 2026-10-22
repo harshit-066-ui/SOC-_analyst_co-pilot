@@ -6,6 +6,7 @@ Responsibilities
 - Primary model (default: deepseek/deepseek-v4-pro) with graceful fallback to
   fallback model (default: qwen/qwen-2.5-72b-instruct) on recoverable upstream errors.
 - Automatic recovery from provider response_format incompatibility (e.g. Novita).
+- Automatic recovery from truncated outputs, provider interruptions, and malformed JSON.
 - Raise LLMUnavailableError for all unrecoverable failure modes so the caller can degrade
   gracefully — the application must NEVER crash due to LLM unavailability.
 """
@@ -14,7 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -22,6 +23,7 @@ from l3.config import (
     OPENROUTER_API_KEY,
     OPENROUTER_BASE_URL,
     OPENROUTER_FALLBACK_MODEL,
+    OPENROUTER_MAX_TOKENS,
     OPENROUTER_PRIMARY_MODEL,
     OPENROUTER_TIMEOUT,
 )
@@ -55,10 +57,38 @@ def _is_recoverable_error(exc: Exception) -> bool:
             return False
     if isinstance(exc, LLMUnavailableError):
         msg = str(exc).lower()
-        if "api key" in msg or "unauthorized" in msg or "auth" in msg:
+        if "api key" in msg or "unauthorized" in msg or "auth" in msg or "credit" in msg:
             return False
         return True
+    if isinstance(exc, (ValueError, json.JSONDecodeError)):
+        # Response parsing and schema-validation failures are recoverable via retry
+        return True
     return False
+
+
+def _categorize_failure(exc: Exception | None) -> str:
+    """Classify an exception into a failure category for logging and corrective prompting."""
+    if exc is None:
+        return "none"
+    if isinstance(exc, httpx.TimeoutException):
+        return "timeout"
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"http_{exc.response.status_code}"
+    if isinstance(exc, httpx.RequestError):
+        return "network_error"
+    if isinstance(exc, (json.JSONDecodeError, ValueError)):
+        return "invalid_json_or_schema"
+    if isinstance(exc, LLMUnavailableError):
+        msg = str(exc).lower()
+        if "empty response" in msg:
+            return "empty_response"
+        if "truncated" in msg or "finish_reason: length" in msg:
+            return "truncated"
+        if "timeout" in msg or "timed out" in msg:
+            return "timeout"
+        if "api error" in msg:
+            return "provider_api_error"
+    return "general_error"
 
 
 def _is_response_format_unsupported(exc: Exception) -> bool:
@@ -101,6 +131,9 @@ class OpenRouterClient:
         self.primary_model = primary_model or model or OPENROUTER_PRIMARY_MODEL
         self.fallback_model = fallback_model or OPENROUTER_FALLBACK_MODEL
         self.last_used_model: str = self.primary_model
+        self.last_finish_reason: str | None = None
+        self.last_usage: dict[str, Any] = {}
+        self.default_max_tokens = OPENROUTER_MAX_TOKENS
         self._api_key = OPENROUTER_API_KEY
         self._base_url = OPENROUTER_BASE_URL.rstrip("/")
         self._timeout = OPENROUTER_TIMEOUT
@@ -126,9 +159,16 @@ class OpenRouterClient:
         system_prompt: str,
         user_prompt: str,
         temperature: float = 0.1,
-        max_tokens: int = 2048,
+        max_tokens: int | None = None,
+        validator: Callable[[str], Any] | None = None,
+        max_retries_per_model: int = 1,
     ) -> str:
         """Send a chat-completion request with primary model and automatic fallback.
+
+        Each model is attempted with corrective retries (up to
+        ``max_retries_per_model``).  If the primary model fails with a
+        recoverable error, the fallback model is tried with the same retry
+        strategy.
 
         Parameters
         ----------
@@ -139,12 +179,17 @@ class OpenRouterClient:
         temperature:
             Low temperature enforces more deterministic, grounded output.
         max_tokens:
-            Upper bound on response length.
+            Upper bound on response length (defaults to configured OPENROUTER_MAX_TOKENS).
+        validator:
+            Optional callback to strictly validate response format/schema.
+            If validation fails, the attempt is treated as a recoverable failure.
+        max_retries_per_model:
+            Maximum number of corrective retries before failing.
 
         Returns
         -------
         str
-            Raw assistant message text (JSON).
+            Raw assistant message text (validated JSON if validator supplied).
 
         Raises
         ------
@@ -157,26 +202,26 @@ class OpenRouterClient:
                 "Export the variable in your shell or .env file."
             )
 
-        # 1. Attempt Primary Model
-        primary_err: Exception | None = None
-        try:
-            content = self._send_completion(
-                model=self.primary_model,
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-            self.last_used_model = self.primary_model
-            return content
-        except Exception as exc:
-            primary_err = exc
-            if not _is_recoverable_error(exc):
-                # Unrecoverable error (e.g. auth error, invalid key) -> raise immediately
-                logger.error("Primary model %s encountered unrecoverable error: %s", self.primary_model, exc)
-                raise exc if isinstance(exc, LLMUnavailableError) else LLMUnavailableError(str(exc)) from exc
+        effective_max_tokens = (
+            max_tokens if max_tokens is not None else self.default_max_tokens
+        )
 
-        # 2. Attempt Fallback Model if primary encountered recoverable failure
+        # 1. Attempt Primary Model (with corrective retries)
+        primary_content, primary_err = self._attempt_model(
+            model=self.primary_model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=temperature,
+            max_tokens=effective_max_tokens,
+            validator=validator,
+            max_retries_per_model=max_retries_per_model,
+        )
+        if primary_content is not None:
+            self.last_used_model = self.primary_model
+            return primary_content
+
+        # primary_err is set and recoverable — try fallback
+        # 2. Attempt Fallback Model (with corrective retries)
         if self.fallback_model and self.fallback_model != self.primary_model:
             logger.warning(
                 "Primary model %s failed (%s); attempting fallback model %s",
@@ -184,37 +229,137 @@ class OpenRouterClient:
                 primary_err,
                 self.fallback_model,
             )
-            try:
-                content = self._send_completion(
-                    model=self.fallback_model,
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                )
+            fallback_content, fallback_err = self._attempt_model(
+                model=self.fallback_model,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=temperature,
+                max_tokens=effective_max_tokens,
+                validator=validator,
+                max_retries_per_model=max_retries_per_model,
+            )
+            if fallback_content is not None:
                 self.last_used_model = self.fallback_model
                 logger.info("Fallback model %s completed successfully", self.fallback_model)
-                return content
-            except Exception as fallback_exc:
-                logger.error(
-                    "Both primary (%s) and fallback (%s) models failed. "
-                    "Primary error: %s | Fallback error: %s",
-                    self.primary_model,
-                    self.fallback_model,
-                    primary_err,
-                    fallback_exc,
-                )
-                raise LLMUnavailableError(
-                    f"Both primary model ({self.primary_model}) and fallback model "
-                    f"({self.fallback_model}) failed. "
-                    f"Primary: {primary_err}; Fallback: {fallback_exc}"
-                ) from fallback_exc
+                return fallback_content
+
+            # Both models failed
+            logger.error(
+                "Both primary (%s) and fallback (%s) models failed. "
+                "Primary error: %s | Fallback error: %s",
+                self.primary_model,
+                self.fallback_model,
+                primary_err,
+                fallback_err,
+            )
+            raise LLMUnavailableError(
+                f"Both primary model ({self.primary_model}) and fallback model "
+                f"({self.fallback_model}) failed. "
+                f"Primary: {primary_err}; Fallback: {fallback_err}"
+            ) from fallback_err
 
         raise primary_err if isinstance(primary_err, LLMUnavailableError) else LLMUnavailableError(str(primary_err)) from primary_err
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _attempt_model(
+        self,
+        model: str,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float,
+        max_tokens: int,
+        validator: Callable[[str], Any] | None,
+        max_retries_per_model: int,
+    ) -> tuple[str | None, Exception | None]:
+        """Try a single model with corrective retries.
+
+        Returns
+        -------
+        (content, error)
+            On success: (content, None).
+            On recoverable failure: (None, error).
+            On unrecoverable failure: raises LLMUnavailableError immediately.
+        """
+        current_model_err: Exception | None = None
+
+        for attempt in range(max_retries_per_model + 1):
+            if attempt == 0:
+                current_prompt = user_prompt
+            else:
+                category = _categorize_failure(current_model_err)
+                current_prompt = (
+                    f"{user_prompt}\n\n"
+                    f"[CORRECTION REQUIRED]: Your previous response failed due to {category} "
+                    f"({current_model_err}). Respond with ONLY a valid, complete JSON object "
+                    f"conforming strictly to the requested schema. Keep the summary and reasoning "
+                    f"concise to prevent truncation."
+                )
+                logger.info(
+                    "Retrying model %s (attempt %d/%d) with corrective prompt (category: %s)",
+                    model,
+                    attempt + 1,
+                    max_retries_per_model + 1,
+                    category,
+                )
+
+            try:
+                content = self._send_completion(
+                    model=model,
+                    system_prompt=system_prompt,
+                    user_prompt=current_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+
+                # Validate response content and schema if validator is provided
+                if validator is not None:
+                    validator(content)
+
+                self.last_used_model = model
+                logger.info(
+                    "Model %s succeeded on attempt %d/%d (finish_reason=%s)",
+                    model,
+                    attempt + 1,
+                    max_retries_per_model + 1,
+                    self.last_finish_reason,
+                )
+                return content, None
+
+            except Exception as exc:
+                current_model_err = exc
+                category = _categorize_failure(exc)
+                logger.warning(
+                    "Model %s attempt %d/%d failed (category=%s): %s",
+                    model,
+                    attempt + 1,
+                    max_retries_per_model + 1,
+                    category,
+                    exc,
+                )
+
+                if not _is_recoverable_error(exc):
+                    # Unrecoverable error (e.g. auth error, invalid key) -> raise immediately
+                    logger.error(
+                        "Model %s encountered unrecoverable error (%s): %s",
+                        model,
+                        category,
+                        exc,
+                    )
+                    raise (
+                        exc
+                        if isinstance(exc, LLMUnavailableError)
+                        else LLMUnavailableError(str(exc))
+                    ) from exc
+
+        # All retries exhausted with recoverable errors
+        failure_msg = f"{model} failed after {max_retries_per_model + 1} attempt(s): {current_model_err}"
+        logger.error("Model %s failed. %s", model, failure_msg)
+        err = LLMUnavailableError(f"Model failed. {failure_msg}")
+        err.__cause__ = current_model_err
+        return None, err
 
     def _send_completion(
         self,
@@ -345,19 +490,35 @@ class OpenRouterClient:
             raise LLMUnavailableError(f"OpenRouter API error for model {model}: {msg}")
 
         try:
-            content: str = data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            content: str = choice["message"]["content"]
+            finish_reason = choice.get("finish_reason")
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMUnavailableError(
                 f"Unexpected OpenRouter response shape for model {model}: {exc}\n"
                 f"Response keys: {list(data.keys())}"
             ) from exc
 
+        usage = data.get("usage") or {}
+        self.last_finish_reason = finish_reason
+        self.last_usage = usage
+
         if not content or not content.strip():
-            raise LLMUnavailableError(f"OpenRouter returned an empty response for model {model}.")
+            raise LLMUnavailableError(
+                f"OpenRouter returned an empty response for model {model}."
+            )
+
+        if finish_reason == "length":
+            raise LLMUnavailableError(
+                f"OpenRouter response truncated for model {model} "
+                f"(finish_reason: length, completion_tokens: {usage.get('completion_tokens')})."
+            )
 
         logger.debug(
-            "OpenRouter call complete | model=%s | chars=%d",
+            "OpenRouter call complete | model=%s | finish_reason=%s | tokens=%s | chars=%d",
             model,
+            finish_reason,
+            usage.get("total_tokens"),
             len(content),
         )
         return content

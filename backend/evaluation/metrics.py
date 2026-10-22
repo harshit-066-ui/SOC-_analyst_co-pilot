@@ -26,6 +26,10 @@ def classify_case(
 ) -> CaseOutcome:
     """Assign TP/FP/TN/FN based on alert_fired and ground truth label.
 
+    If no ground truth label is provided, or if the case failed execution/prediction,
+    the outcome is UNKNOWN (excluded from TP/FP/TN/FN counts to prevent silent
+    false-negative or true-negative bias).
+
     Parameters
     ----------
     result:
@@ -33,7 +37,7 @@ def classify_case(
     label:
         'malicious' or 'benign' (or None if no ground truth).
     """
-    if label is None:
+    if label is None or result.status == "failed":
         return CaseOutcome.UNKNOWN
     fired = result.alert_fired
     positive = label == "malicious"
@@ -54,7 +58,7 @@ def compute_metrics(
     """Compute all available metrics for one configuration.
 
     Metrics that require ground truth are set to None (not 0) when labels
-    are unavailable. The metrics_note field explains any gaps.
+    are unavailable. The metrics_note field explains any gaps or failure exclusions.
     """
     m = ConfigMetrics(
         config_id=config_id,
@@ -96,7 +100,7 @@ def compute_metrics(
         # LLM availability
         if r.llm_status == "available":
             llm_available += 1
-        elif r.llm_status in ("unavailable", "partial"):
+        elif r.llm_status in ("unavailable", "partial", "failed"):
             llm_unavailable += 1
 
         # RAG
@@ -163,11 +167,17 @@ def compute_metrics(
             else 0.0
         )
 
+    # Document failure exclusions
+    if m.cases_failed > 0:
+        notes.append(
+            f"{m.cases_failed} case(s) failed prediction/execution and were excluded from classification metrics."
+        )
+
     # Classification metrics — only when ground truth is available
     if not has_outcome or not has_ground_truth:
         notes.append(
             "Precision, recall, F1, FPR, FNR: Not available — "
-            "no ground truth labels provided for this run."
+            "no ground truth labels or valid completed predictions provided for this run."
         )
     else:
         tp, fp, tn, fn = m.tp, m.fp, m.tn, m.fn

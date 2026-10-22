@@ -104,16 +104,17 @@ def run(
             # Gather retrieved evidence
             retrieved_evidence = []
             for cti in sec.get("retrieved_cti", []):
-                retrieved_evidence.append(
-                    {
-                        "doc_id": str(cti.get("id", "")),
-                        "title": cti.get("title", ""),
-                        "source": cti.get("source", ""),
-                        "score": cti.get("score", 0.0),
-                        "technique_id": cti.get("technique_id", ""),
-                        "snippet": str(cti.get("content", ""))[:300],
-                    }
-                )
+                if isinstance(cti, dict):
+                    retrieved_evidence.append(
+                        {
+                            "doc_id": str(cti.get("id", "")),
+                            "title": str(cti.get("title", "")),
+                            "source": str(cti.get("source", "")),
+                            "score": float(cti.get("score", 0.0)),
+                            "technique_id": str(cti.get("technique_id", "")),
+                            "snippet": str(cti.get("content", ""))[:300],
+                        }
+                    )
 
             results.append(
                 {

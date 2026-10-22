@@ -3,7 +3,8 @@
 Never hardcode secrets here.  Set the following in your shell or .env file:
 
     OPENROUTER_API_KEY   — required for LLM calls
-    OPENROUTER_MODEL     — optional, defaults to anthropic/claude-3-haiku
+    OPENROUTER_PRIMARY_MODEL   — optional, defaults to deepseek/deepseek-v4-pro
+    OPENROUTER_FALLBACK_MODEL  — optional, defaults to qwen/qwen-2.5-72b-instruct
     OPENROUTER_TIMEOUT   — optional, seconds (int), defaults to 60
     OPENROUTER_BASE_URL  — optional, defaults to https://openrouter.ai/api/v1
 """
@@ -49,6 +50,9 @@ OPENROUTER_MODEL: str = OPENROUTER_PRIMARY_MODEL
 
 OPENROUTER_TIMEOUT: int = int(os.getenv("OPENROUTER_TIMEOUT", "60"))
 """HTTP request timeout in seconds."""
+
+OPENROUTER_MAX_TOKENS: int = int(os.getenv("OPENROUTER_MAX_TOKENS", "4096"))
+"""Default upper bound on output tokens for LLM completions."""
 
 OPENROUTER_BASE_URL: str = os.getenv(
     "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"

@@ -1,0 +1,77 @@
+[
+  {
+    "id": "SOC-001-E01",
+    "timestamp": "2026-10-20T08:00:01Z",
+    "rule": {
+      "level": 7,
+      "description": "sshd: Failed login for user admin",
+      "groups": [
+        "authentication"
+      ]
+    },
+    "agent": {
+      "name": "web-prod-01",
+      "id": "001"
+    },
+    "data": {
+      "srcip": "185.20.10.1",
+      "dstip": "10.0.0.5",
+      "user": "admin",
+      "protocol": "TCP",
+      "srcport": "49100",
+      "dstport": "22",
+      "action": "failed"
+    },
+    "full_log": "Oct 20 08:00:01 web-prod-01 sshd[1101]: Failed password for admin from 185.20.10.1 port 49100 ssh2"
+  },
+  {
+    "id": "SOC-001-E02",
+    "timestamp": "2026-10-20T08:00:05Z",
+    "rule": {
+      "level": 7,
+      "description": "sshd: Failed login for user admin",
+      "groups": [
+        "authentication"
+      ]
+    },
+    "agent": {
+      "name": "web-prod-01",
+      "id": "001"
+    },
+    "data": {
+      "srcip": "185.20.10.1",
+      "dstip": "10.0.0.5",
+      "user": "admin",
+      "protocol": "TCP",
+      "srcport": "49101",
+      "dstport": "22",
+      "action": "failed"
+    },
+    "full_log": "Oct 20 08:00:05 web-prod-01 sshd[1102]: Failed password for admin from 185.20.10.1 port 49101 ssh2"
+  },
+  {
+    "id": "SOC-001-E03",
+    "timestamp": "2026-10-20T08:00:09Z",
+    "rule": {
+      "level": 7,
+      "description": "sshd: Failed login for user admin",
+      "groups": [
+        "authentication"
+      ]
+    },
+    "agent": {
+      "name": "web-prod-01",
+      "id": "001"
+    },
+    "data": {
+      "srcip": "185.20.10.1",
+      "dstip": "10.0.0.5",
+      "user": "admin",
+      "protocol": "TCP",
+      "srcport": "49102",
+      "dstport": "22",
+      "action": "failed"
+    },
+    "full_log": "Oct 20 08:00:09 web-prod-01 sshd[1103]: Failed password for admin from 185.20.10.1 port 49102 ssh2"
+  }
+]

@@ -9,14 +9,19 @@ Rule findings are withheld from the LLM prompt.
 
 from __future__ import annotations
 
-import json
 import logging
-import re
 import time
 from typing import Any
 
+from evaluation.configs.common import (
+    safe_dict,
+    safe_list,
+    safe_str,
+    validate_evaluation_response,
+)
 from l2.enricher import enrich_event
 from l2.models import ContextEnrichedEvent
+from l3.config import OPENROUTER_MAX_TOKENS
 from l3.reasoning.openrouter_client import LLMUnavailableError, OpenRouterClient
 
 logger = logging.getLogger(__name__)
@@ -30,12 +35,13 @@ Do NOT invent:
   - risk scores (any score is your estimate only and must be labelled as such)
   - MITRE techniques not evidenced in the data or CTI
 
-Respond with a single valid JSON object:
+Provide a concise, evidence-grounded assessment. Keep summary and reasoning to 1-2 sentences each.
+Respond with ONLY a single valid JSON object adhering strictly to this schema:
 {
   "classification": "<malicious|benign|uncertain>",
   "confidence": "<low|medium|high>",
-  "summary": "<1-2 sentence overview>",
-  "reasoning": "<step-by-step reasoning citing CTI items where relevant>",
+  "summary": "<1-2 sentence concise overview>",
+  "reasoning": "<1-2 sentence concise reasoning citing CTI items where relevant>",
   "estimated_severity": "<low|medium|high|critical>",
   "estimated_risk_score": <0-100 integer, clearly an LLM estimate>,
   "mitre_techniques": ["<technique if evidenced>"],
@@ -43,7 +49,11 @@ Respond with a single valid JSON object:
   "uncertainty_reasons": ["<reason>"],
   "cti_references_used": ["<title or ID of CTI items referenced>"]
 }
-Return ONLY the JSON object.
+
+Strict Rules:
+- classification MUST be exactly one of: "malicious", "benign", or "uncertain".
+- estimated_risk_score is your estimate ONLY — it is NOT authoritative.
+- Return ONLY the raw JSON object. Do not wrap in markdown or include conversational commentary.
 """
 
 
@@ -55,33 +65,39 @@ def _retrieve_cti_for_event(
     """Retrieve semantically relevant knowledge from Qdrant."""
     try:
         from vectorstore.retriever import retrieve_for_text
-        from embeddings.text_builder import alert_to_text
 
-        # Build a query text from the event's key fields
         parts: list[str] = []
-        if event.get("event_type"):
-            parts.append(event["event_type"])
-        if event.get("message"):
-            parts.append(str(event["message"])[:200])
-        if event.get("source", {}).get("ip"):
-            parts.append(event["source"]["ip"])
-        mitre = enriched.mitre_attack
-        for tech in getattr(mitre, "techniques", [])[:2]:
-            parts.append(str(tech))
+        if isinstance(event, dict):
+            if event.get("event_type"):
+                parts.append(safe_str(event["event_type"]))
+            msg = safe_str(event.get("message"), default="", max_len=200)
+            if msg:
+                parts.append(msg)
+            src = safe_dict(event.get("source"))
+            if src.get("ip"):
+                parts.append(safe_str(src["ip"]))
+
+        mitre = getattr(enriched, "mitre_attack", None)
+        techniques = getattr(mitre, "techniques", [])
+        if isinstance(techniques, list):
+            for tech in techniques[:2]:
+                parts.append(safe_str(tech))
 
         query = " ".join(parts) if parts else "security alert"
         hits = retrieve_for_text(query, top_k=top_k)
         results: list[dict[str, Any]] = []
         for hit in hits:
-            payload = hit.get("payload", {})
+            if not isinstance(hit, dict):
+                continue
+            payload = safe_dict(hit.get("payload"))
             results.append(
                 {
                     "id": str(hit.get("id", "")),
-                    "title": payload.get("title", ""),
-                    "source": payload.get("source", "vectorstore"),
-                    "score": hit.get("score", 0.0),
-                    "technique_id": payload.get("technique_id", ""),
-                    "snippet": (hit.get("text") or payload.get("text", ""))[:300],
+                    "title": safe_str(payload.get("title")),
+                    "source": safe_str(payload.get("source"), default="vectorstore"),
+                    "score": float(hit.get("score", 0.0)),
+                    "technique_id": safe_str(payload.get("technique_id"), default=""),
+                    "snippet": safe_str(hit.get("text") or payload.get("text"), max_len=300),
                 }
             )
         return results
@@ -95,27 +111,36 @@ def _build_prompt(
     enriched: ContextEnrichedEvent,
     cti_hits: list[dict[str, Any]],
 ) -> str:
+    if not isinstance(event, dict):
+        event = {}
+
+    source_platform = safe_str(event.get("source_platform"), default="unknown")
+    event_type = safe_str(event.get("event_type"), default="unknown")
+    timestamp = safe_str(event.get("timestamp"), default="unknown")
+    action = safe_str(event.get("action"), default="unknown")
+    message = safe_str(event.get("message"), default="not available", max_len=300)
+
     lines = [
         "=== [EVENT CONTEXT] ===",
-        f"Source Platform : {event.get('source_platform', 'unknown')}",
-        f"Event Type      : {event.get('event_type', 'unknown')}",
-        f"Timestamp       : {event.get('timestamp', 'unknown')}",
-        f"Action          : {event.get('action', 'unknown')}",
-        f"Message         : {str(event.get('message', 'not available'))[:300]}",
+        f"Source Platform : {source_platform}",
+        f"Event Type      : {event_type}",
+        f"Timestamp       : {timestamp}",
+        f"Action          : {action}",
+        f"Message         : {message}",
     ]
-    src = event.get("source", {})
-    dst = event.get("destination", {})
+    src = safe_dict(event.get("source"))
+    dst = safe_dict(event.get("destination"))
     if src.get("ip"):
-        lines.append(f"Source IP       : {src['ip']}")
+        lines.append(f"Source IP       : {safe_str(src['ip'])}")
     if dst.get("ip"):
-        lines.append(f"Destination IP  : {dst['ip']}")
+        lines.append(f"Destination IP  : {safe_str(dst['ip'])}")
 
-    asset = enriched.asset_context
+    asset = getattr(enriched, "asset_context", None)
     lines += [
         "",
         "=== [ASSET CONTEXT] ===",
-        f"Asset Criticality : {getattr(asset, 'criticality', 'unknown')}",
-        f"Hostname          : {getattr(asset, 'hostname', 'unknown')}",
+        f"Asset Criticality : {safe_str(getattr(asset, 'criticality', None), default='unknown')}",
+        f"Hostname          : {safe_str(getattr(asset, 'hostname', None), default='unknown')}",
     ]
 
     if cti_hits:
@@ -142,32 +167,6 @@ def _build_prompt(
     return "\n".join(lines)
 
 
-def _parse_llm_response(raw_text: str) -> dict[str, Any]:
-    text = raw_text.strip()
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL)
-    if m:
-        try:
-            return json.loads(m.group(1))
-        except json.JSONDecodeError:
-            pass
-    try:
-        obj = json.loads(text)
-        if isinstance(obj, dict):
-            return obj
-    except json.JSONDecodeError:
-        pass
-    fb, lb = text.find("{"), text.rfind("}")
-    if fb != -1 and lb > fb:
-        try:
-            obj = json.loads(text[fb : lb + 1])
-            if isinstance(obj, dict):
-                return obj
-        except json.JSONDecodeError:
-            pass
-    raise ValueError(f"No valid JSON in LLM response: {text[:200]}")
-
-
 def run(
     normalized_events: list[dict[str, Any]],
     llm_client: OpenRouterClient | None = None,
@@ -188,7 +187,7 @@ def run(
         return [], errors
 
     for event, enriched in zip(normalized_events, enriched_list):
-        event_id = str(event.get("event_id", ""))
+        event_id = str(event.get("event_id", "")) if isinstance(event, dict) else ""
         t0 = time.perf_counter()
         try:
             cti_hits = _retrieve_cti_for_event(event, enriched, top_k=rag_top_k)
@@ -199,9 +198,10 @@ def run(
                 system_prompt=_SYSTEM_PROMPT,
                 user_prompt=prompt,
                 temperature=0.1,
-                max_tokens=1024,
+                max_tokens=OPENROUTER_MAX_TOKENS,
+                validator=validate_evaluation_response,
             )
-            parsed = _parse_llm_response(raw_text)
+            parsed = validate_evaluation_response(raw_text)
             latency_ms = (time.perf_counter() - t0) * 1000
 
             retrieved_evidence = [
@@ -219,6 +219,7 @@ def run(
             results.append(
                 {
                     "event_id": event_id,
+                    "status": "completed",
                     "alert_fired": parsed.get("classification") == "malicious",
                     "rule_ids_fired": [],
                     "rule_names_fired": [],
@@ -249,8 +250,12 @@ def run(
             results.append(
                 {
                     "event_id": event_id,
+                    "status": "failed",
                     "alert_fired": False,
+                    "rule_ids_fired": [],
+                    "rule_names_fired": [],
                     "risk_score": None,
+                    "risk_level": None,
                     "risk_score_source": "none",
                     "llm_status": "unavailable",
                     "llm_model": client.model,
@@ -267,10 +272,15 @@ def run(
             results.append(
                 {
                     "event_id": event_id,
+                    "status": "failed",
                     "alert_fired": False,
+                    "rule_ids_fired": [],
+                    "rule_names_fired": [],
                     "risk_score": None,
+                    "risk_level": None,
                     "risk_score_source": "none",
-                    "llm_status": "partial",
+                    "llm_status": "failed",
+                    "llm_model": getattr(client, "model", None),
                     "latency_ms": latency_ms,
                     "error": str(exc),
                     "raw_output": {},

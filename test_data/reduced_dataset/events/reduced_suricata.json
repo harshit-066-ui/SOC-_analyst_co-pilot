@@ -1,0 +1,50 @@
+[
+  {
+    "id": "SOC-014-E01",
+    "timestamp": "2026-10-20T08:00:01Z",
+    "event_type": "alert",
+    "src_ip": "185.20.10.1",
+    "src_port": 49100,
+    "dest_ip": "10.0.0.5",
+    "dest_port": 22,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2010935,
+      "category": "Attempted Administrator Privilege Gain",
+      "severity": 2,
+      "signature": "ET SCAN Suspicious inbound SSH connection attempt from known C2"
+    },
+    "flow_id": "suricata-soc014"
+  },
+  {
+    "id": "SOC-015-E01",
+    "timestamp": "2026-10-20T09:00:00Z",
+    "event_type": "flow",
+    "src_ip": "10.0.0.5",
+    "src_port": 51000,
+    "dest_ip": "93.184.216.34",
+    "dest_port": 80,
+    "proto": "TCP",
+    "flow_id": "suricata-soc015"
+  },
+  {
+    "id": "SOC-016-E01",
+    "timestamp": "2026-10-20T08:12:30Z",
+    "event_type": "alert",
+    "src_ip": "10.0.0.5",
+    "src_port": 54321,
+    "dest_ip": "93.184.216.34",
+    "dest_port": 80,
+    "proto": "TCP",
+    "alert": {
+      "action": "allowed",
+      "signature_id": 2024363,
+      "category": "A Network Trojan was detected",
+      "severity": 1,
+      "signature": "ET MALWARE Known Emotet malicious.com domain resolution and payload download"
+    },
+    "flow_id": "suricata-soc016",
+    "message": "Detected malware download from malicious.com"
+  }
+]
